@@ -229,7 +229,10 @@ export default function OilTradePage() {
             HYPERLIQUID
           </span>
         </div>
-        <div className="flex flex-wrap items-center gap-4 font-mono text-[11px]">
+        <div
+          data-tour="tour-header-wallet"
+          className="flex flex-wrap items-center gap-4 font-mono text-[11px]"
+        >
           <Link
             href="/balance"
             className="text-[#5c6578] hover:text-[#00e5ff] hover:underline"
@@ -266,7 +269,10 @@ export default function OilTradePage() {
       </header>
 
       <div className="grid min-h-0 flex-1 grid-cols-12 gap-px bg-[#1e2430] p-px">
-        <section className="col-span-12 grid grid-cols-2 gap-px bg-[#1e2430] sm:grid-cols-3 lg:grid-cols-6">
+        <section
+          data-tour="tour-stats"
+          className="col-span-12 grid grid-cols-2 gap-px bg-[#1e2430] sm:grid-cols-3 lg:grid-cols-6"
+        >
           {[
             {
               label: "LAST (CLOSE)",
@@ -317,7 +323,10 @@ export default function OilTradePage() {
               {lastPrice != null ? formatUsd(lastPrice) : "—"}
             </span>
           </div>
-          <div className="flex flex-wrap items-end gap-2 border-b border-[#1e2430] px-3 py-2">
+          <div
+            data-tour="tour-chart-controls"
+            className="flex flex-wrap items-end gap-2 border-b border-[#1e2430] px-3 py-2"
+          >
             <label className="text-[10px] uppercase tracking-wider text-[#5c6578]">
               View
             </label>
@@ -378,7 +387,7 @@ export default function OilTradePage() {
           </div>
         </main>
 
-        <section className="col-span-12 bg-[#12151c]">
+        <section data-tour="tour-bot-feed" className="col-span-12 bg-[#12151c]">
           <div className="border-t border-b border-[#1e2430] px-3 py-2">
             <div className="text-[10px] uppercase tracking-wider text-[#5c6578]">
               Global bot activity
