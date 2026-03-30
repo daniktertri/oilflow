@@ -4,6 +4,8 @@ import {
   SESSION_MAX_AGE_SEC,
   signSession,
 } from "@/lib/auth-session";
+import { getDb } from "@/lib/db";
+import { upsertTelegramUser } from "@/lib/db/users";
 import { verifyTelegramAuth } from "@/lib/telegram-verify";
 
 export async function POST(req: Request) {
@@ -29,9 +31,38 @@ export async function POST(req: Request) {
     );
   }
 
+  const sql = getDb();
+  if (!sql) {
+    return NextResponse.json(
+      { error: "Server missing DATABASE_URL — add Neon connection string" },
+      { status: 500 }
+    );
+  }
+
+  let userId: string;
+  try {
+    const row = await upsertTelegramUser(sql, {
+      telegramId: body.id as number,
+      username:
+        typeof body.username === "string" ? body.username : undefined,
+      firstName: body.first_name as string,
+      lastName:
+        typeof body.last_name === "string" ? body.last_name : undefined,
+      photoUrl:
+        typeof body.photo_url === "string" ? body.photo_url : undefined,
+    });
+    userId = row.id;
+  } catch (e) {
+    const msg =
+      e instanceof Error ? e.message : "Database error while saving user";
+    console.error("[auth/telegram] db:", e);
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
+
   let sessionToken: string;
   try {
     sessionToken = signSession({
+      userId,
       tgId: body.id as number,
       username:
         typeof body.username === "string" ? body.username : undefined,

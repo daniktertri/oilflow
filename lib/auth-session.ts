@@ -5,6 +5,8 @@ export const SESSION_COOKIE_NAME = "of_tg_session";
 export const SESSION_MAX_AGE_SEC = 60 * 60 * 24 * 7; // 7 days
 
 export type SessionPayload = {
+  /** Neon `users.id` (uuid), when user was persisted */
+  userId?: string;
   tgId: number;
   username?: string;
   firstName: string;
@@ -60,6 +62,12 @@ export function verifySession(token: string): SessionPayload | null {
     const now = Math.floor(Date.now() / 1000);
     if (now - parsed.iat > SESSION_MAX_AGE_SEC) return null;
     if (typeof parsed.tgId !== "number") return null;
+    if (
+      parsed.userId !== undefined &&
+      typeof parsed.userId !== "string"
+    ) {
+      return null;
+    }
     return parsed;
   } catch {
     return null;

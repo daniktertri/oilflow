@@ -19,6 +19,7 @@ export async function GET() {
     return res;
   }
   const user: SessionUser = {
+    ...(payload.userId ? { id: payload.userId } : {}),
     telegramId: payload.tgId,
     username: payload.username,
     firstName: payload.firstName,
