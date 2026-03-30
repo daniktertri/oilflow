@@ -9,6 +9,7 @@ const links: { href: string; label: string }[] = [
   { href: "/", label: "Chart" },
   { href: "/balance", label: "Balance" },
   { href: "/lock", label: "Lock liquidity" },
+  { href: "/how-it-works", label: "How it works" },
 ];
 
 /** Static shell while pathname hook resolves — avoids Next/Webpack issues with `search-params` chunk. */
@@ -38,7 +39,9 @@ function AppNavInner() {
       <span className="mr-3 font-mono text-[11px] text-[#ffc107]">OilFlow</span>
       {links.map(({ href, label }) => {
         const active =
-          href === "/" ? pathname === "/" : pathname === href;
+          href === "/"
+            ? pathname === "/"
+            : pathname === href || pathname.startsWith(`${href}/`);
         return (
           <Link
             key={href}
