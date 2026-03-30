@@ -76,7 +76,7 @@ CREATE TABLE IF NOT EXISTS custody_state (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
--- Liquidity locks (server source of truth); hourly yield credited while active.
+-- Liquidity locks (server source of truth), hourly yield credited while active.
 
 CREATE TABLE IF NOT EXISTS liquidity_locks (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),

@@ -52,6 +52,44 @@ function formatDuration(ms: number) {
   return `${m}:${String(sec).padStart(2, "0")}`;
 }
 
+/** Countdown until unlock — includes days when lock is longer than 24h. */
+function formatUnlockCountdown(ms: number) {
+  if (ms <= 0) return "Unlocking…";
+  const s = Math.floor(ms / 1000);
+  const d = Math.floor(s / 86400);
+  const h = Math.floor((s % 86400) / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  if (d > 0) {
+    return `${d}d ${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
+  }
+  return formatDuration(ms);
+}
+
+function roiPercent(principal: number, yieldUsd: number): string {
+  if (!Number.isFinite(principal) || principal <= 0) return "—";
+  const pct = (yieldUsd / principal) * 100;
+  return `${pct >= 0 ? "" : "−"}${Math.abs(pct).toFixed(2)}%`;
+}
+
+function LockGlyph({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className ?? "h-[18px] w-[18px] shrink-0"}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <rect x="4" y="11" width="16" height="11" rx="2" ry="2" />
+      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+    </svg>
+  );
+}
+
 export default function LockLiquidityPage() {
   const {
     balance,
@@ -179,42 +217,99 @@ export default function LockLiquidityPage() {
               </div>
             ) : (
               <div data-tour="tour-lock-form" className="space-y-2 text-[11px]">
-                <div className="flex justify-between font-mono text-[#c8d0e0]">
-                  <span className="text-[#5c6578]">Locked</span>
-                  <span>{formatUsd(activeLock.principalUsd)}</span>
-                </div>
-                <div className="flex justify-between font-mono">
-                  <span className="text-[#5c6578]">Accumulated yield</span>
-                  <span
-                    className={
-                      activeLock.accumulatedYieldUsd >= 0
-                        ? "text-[#00c853]"
-                        : "text-[#ff5252]"
-                    }
-                  >
-                    {formatUsd(activeLock.accumulatedYieldUsd)}
-                  </span>
-                </div>
-                <div className="flex justify-between font-mono text-[#00e5ff]">
-                  <span className="text-[#5c6578]">Time left</span>
-                  <span>{formatDuration(remainingMs)}</span>
-                </div>
                 <p className="leading-relaxed text-[#5c6578]">
                   Yield credits to your available balance each hour while the lock
-                  is active; principal returns at expiry.
+                  is active; principal returns at expiry. Details on the right.
                 </p>
               </div>
             )}
           </section>
 
-          <section className="rounded border border-[#1e2430] bg-[#12151c] px-4 py-4">
-            <p className="text-[11px] leading-relaxed text-[#5c6578]">
-              Per-trade P&amp;L and charts live on{" "}
-              <Link href="/dashboard" className="text-[#00e5ff] hover:underline">
-                Dashboard
-              </Link>
-              .
-            </p>
+          <section className="rounded border border-[#1e2430] bg-[#12151c] p-5">
+            {activeLock ? (
+              <div className="space-y-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-2.5">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded border border-[#ffc107]/40 bg-[#1a1608] text-[#ffc107]">
+                      <LockGlyph />
+                    </span>
+                    <div>
+                      <div className="font-mono text-[11px] uppercase tracking-wider text-[#5c6578]">
+                        Locked position
+                      </div>
+                      <div className="font-mono text-[13px] text-[#c8d0e0]">
+                        {formatUsd(activeLock.principalUsd)} principal
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded border border-[#1e2430] bg-[#0c0e12] px-4 py-3">
+                  <div className="mb-1 text-[10px] uppercase tracking-wider text-[#5c6578]">
+                    Unlocks in
+                  </div>
+                  <div className="font-mono text-xl tabular-nums text-[#00e5ff]">
+                    {formatUnlockCountdown(remainingMs)}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="rounded border border-[#1e2430] bg-[#0c0e12] px-3 py-2.5">
+                    <div className="mb-0.5 text-[10px] uppercase tracking-wider text-[#5c6578]">
+                      Locked P&amp;L
+                    </div>
+                    <div
+                      className={`font-mono text-lg ${
+                        activeLock.accumulatedYieldUsd >= 0
+                          ? "text-[#00c853]"
+                          : "text-[#ff5252]"
+                      }`}
+                    >
+                      {formatUsd(activeLock.accumulatedYieldUsd)}
+                    </div>
+                  </div>
+                  <div className="rounded border border-[#1e2430] bg-[#0c0e12] px-3 py-2.5">
+                    <div className="mb-0.5 text-[10px] uppercase tracking-wider text-[#5c6578]">
+                      ROI (this lock)
+                    </div>
+                    <div
+                      className={`font-mono text-lg ${
+                        activeLock.accumulatedYieldUsd >= 0
+                          ? "text-[#00c853]"
+                          : "text-[#ff5252]"
+                      }`}
+                    >
+                      {roiPercent(
+                        activeLock.principalUsd,
+                        activeLock.accumulatedYieldUsd
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <p className="text-[10px] leading-relaxed text-[#5c6578]">
+                  ROI is yield earned so far vs this lock&apos;s principal. Per-trade
+                  history and daily chart:{" "}
+                  <Link
+                    href="/dashboard"
+                    className="text-[#00e5ff] hover:underline"
+                  >
+                    Dashboard
+                  </Link>
+                  .
+                </p>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-8 text-center">
+                <span className="mb-3 flex h-12 w-12 items-center justify-center rounded-full border border-dashed border-[#2a3140] text-[#3d4555]">
+                  <LockGlyph className="h-6 w-6" />
+                </span>
+                <p className="max-w-[240px] text-[11px] leading-relaxed text-[#5c6578]">
+                  No active lock. Start one on the left — this panel will show
+                  countdown, P&amp;L, and ROI for that position.
+                </p>
+              </div>
+            )}
           </section>
         </div>
       </div>
