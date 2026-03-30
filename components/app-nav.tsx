@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { usePathname } from "next/navigation";
+import { useTelegramAuth } from "@/components/telegram-auth-provider";
 
 const links: { href: string; label: string }[] = [
   { href: "/", label: "Chart" },
@@ -30,6 +31,7 @@ export function AppNavFallback() {
 
 function AppNavInner() {
   const pathname = usePathname();
+  const { user, loading, logout } = useTelegramAuth();
 
   return (
     <nav className="flex flex-wrap items-center gap-1 border-b border-[#1e2430] bg-[#0a0c10] px-3 py-2">
@@ -51,6 +53,31 @@ function AppNavInner() {
           </Link>
         );
       })}
+      <span className="ml-auto flex items-center gap-2 font-mono text-[11px]">
+        {loading ? (
+          <span className="text-[#5c6578]">…</span>
+        ) : user ? (
+          <>
+            <span className="max-w-[10rem] truncate text-[#c8d0e0]">
+              {user.username ? `@${user.username}` : user.firstName}
+            </span>
+            <button
+              type="button"
+              onClick={() => void logout()}
+              className="rounded px-2 py-0.5 text-[#5c6578] hover:bg-[#12151c] hover:text-[#c8d0e0]"
+            >
+              Log out
+            </button>
+          </>
+        ) : (
+          <Link
+            href="/login"
+            className="rounded px-2.5 py-1 text-[#5c6578] hover:bg-[#12151c] hover:text-[#00e5ff]"
+          >
+            Log in
+          </Link>
+        )}
+      </span>
     </nav>
   );
 }
