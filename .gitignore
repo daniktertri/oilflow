@@ -7,7 +7,7 @@
 !.yarn/plugins
 !.yarn/releases
 !.yarn/versions
-
+/scripts
 # testing
 /coverage
 
@@ -30,6 +30,10 @@ yarn-error.log*
 
 # env files
 .env*.local
+
+# Solana custody worker (VPS secrets — never commit)
+scripts/solana-custody/.env
+scripts/solana-custody/.local/
 
 # vercel
 .vercel

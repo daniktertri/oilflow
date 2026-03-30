@@ -26,6 +26,7 @@ const MAX_LEDGER = 100;
 export type WalletLedgerKind =
   | "deposit"
   | "withdraw"
+  | "withdraw_refund"
   | "lock_in"
   | "lock_settle";
 

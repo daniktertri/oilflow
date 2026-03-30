@@ -18,15 +18,8 @@ import {
 } from "@/lib/session-trading";
 import { fetchMarkFrom1m } from "@/lib/mark-price";
 import { addSessionPnlToDay } from "@/lib/pnl-history";
-import {
-  appendLedgerEntry,
-  loadBalance,
-  loadLedger,
-  loadLock,
-  saveBalance,
-  saveLock,
-  type WalletLedgerEntry,
-} from "@/lib/wallet-storage";
+import { loadLock, saveLock, type WalletLedgerEntry } from "@/lib/wallet-storage";
+import { useTelegramAuth } from "@/components/telegram-auth-provider";
 
 type WalletCtx = {
   balance: number;
@@ -35,8 +28,12 @@ type WalletCtx = {
   tickNow: number;
   remainingMs: number;
   recentLedger: WalletLedgerEntry[];
-  topUpUsd: (amountUsd: number) => void;
-  withdrawUsd: (amountUsd: number) => { ok: true } | { ok: false; error: string };
+  depositPubkey: string | null;
+  refreshWallet: () => Promise<void>;
+  withdrawUsd: (
+    amountUsd: number,
+    destinationPubkey: string
+  ) => Promise<{ ok: true } | { ok: false; error: string }>;
   startLock: (params: {
     amountUsd: number;
     durationMs: number;
@@ -45,7 +42,26 @@ type WalletCtx = {
 
 const WalletContext = createContext<WalletCtx | null>(null);
 
+function mapServerLedger(
+  rows: {
+    id: string;
+    kind: string;
+    amount: number;
+    balanceAfter: number;
+    createdAt: string;
+  }[]
+): WalletLedgerEntry[] {
+  return rows.map((row) => ({
+    id: row.id,
+    time: new Date(row.createdAt).getTime(),
+    kind: row.kind as WalletLedgerEntry["kind"],
+    amountUsd: row.amount,
+    balanceAfter: row.balanceAfter,
+  }));
+}
+
 export function WalletProvider({ children }: { children: React.ReactNode }) {
+  const { user } = useTelegramAuth();
   const [balance, setBalance] = useState(0);
   const [hydrated, setHydrated] = useState(false);
   const [activeLock, setActiveLock] = useState<ActiveLiquidityLock | null>(
@@ -53,39 +69,63 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   );
   const [tickNow, setTickNow] = useState(Date.now());
   const [recentLedger, setRecentLedger] = useState<WalletLedgerEntry[]>([]);
+  const [depositPubkey, setDepositPubkey] = useState<string | null>(null);
 
   const lockRef = useRef<ActiveLiquidityLock | null>(null);
   lockRef.current = activeLock;
   const settledEndsAtRef = useRef<number | null>(null);
 
-  const syncLedger = useCallback(() => {
-    setRecentLedger(loadLedger());
-  }, []);
-
-  useEffect(() => {
-    let b = loadBalance();
-    const l = loadLock();
-    if (l && Date.now() >= l.endsAt) {
-      const returned = l.principalUsd + l.sessionPnlUsd;
-      addSessionPnlToDay(Math.min(Date.now(), l.endsAt), l.sessionPnlUsd);
-      b += returned;
-      saveBalance(b);
-      saveLock(null);
-      appendLedgerEntry("lock_settle", returned, b);
-      setBalance(b);
-      setActiveLock(null);
-    } else {
-      setBalance(b);
-      if (l && Date.now() < l.endsAt) setActiveLock(l);
+  const refreshWallet = useCallback(async () => {
+    if (!user?.id) {
+      setBalance(0);
+      setRecentLedger([]);
+      setDepositPubkey(null);
+      return;
     }
-    setRecentLedger(loadLedger());
-    setHydrated(true);
-  }, []);
+    try {
+      const res = await fetch("/api/wallet", { cache: "no-store" });
+      if (!res.ok) return;
+      const data = (await res.json()) as {
+        usdcAvailable: number;
+        ledger: {
+          id: string;
+          kind: string;
+          amount: number;
+          balanceAfter: number;
+          createdAt: string;
+        }[];
+        depositPubkey: string | null;
+      };
+      setBalance(data.usdcAvailable);
+      setRecentLedger(mapServerLedger(data.ledger));
+      setDepositPubkey(data.depositPubkey);
+    } catch {
+      /* ignore */
+    }
+  }, [user?.id]);
 
   useEffect(() => {
-    if (!hydrated) return;
-    saveBalance(balance);
-  }, [balance, hydrated]);
+    void (async () => {
+      if (!user?.id) {
+        setHydrated(true);
+        return;
+      }
+      await refreshWallet();
+      const l = loadLock();
+      if (l && Date.now() < l.endsAt) {
+        setActiveLock(l);
+      }
+      setHydrated(true);
+    })();
+  }, [user?.id, refreshWallet]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    const id = window.setInterval(() => {
+      void refreshWallet();
+    }, 30_000);
+    return () => clearInterval(id);
+  }, [user?.id, refreshWallet]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -98,7 +138,54 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     return () => clearInterval(id);
   }, []);
 
+  const settleLockOnServer = useCallback(
+    async (L: ActiveLiquidityLock) => {
+      if (!user?.id) return;
+      addSessionPnlToDay(Math.min(Date.now(), L.endsAt), L.sessionPnlUsd);
+      try {
+        const res = await fetch("/api/wallet/lock-settle", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            principalUsd: L.principalUsd,
+            sessionPnlUsd: L.sessionPnlUsd,
+          }),
+        });
+        const data = (await res.json()) as {
+          ok?: boolean;
+          balanceAfter?: number;
+          error?: string;
+        };
+        if (!res.ok) {
+          console.error("[wallet] lock-settle", data.error);
+          settledEndsAtRef.current = null;
+          return;
+        }
+        if (typeof data.balanceAfter === "number") {
+          setBalance(data.balanceAfter);
+        }
+        await refreshWallet();
+        setActiveLock(null);
+        saveLock(null);
+      } catch (e) {
+        console.error("[wallet] lock-settle", e);
+        settledEndsAtRef.current = null;
+      }
+    },
+    [user?.id, refreshWallet]
+  );
+
   useEffect(() => {
+    if (!user?.id || !hydrated) return;
+    const l = loadLock();
+    if (!l || Date.now() < l.endsAt) return;
+    if (settledEndsAtRef.current === l.endsAt) return;
+    settledEndsAtRef.current = l.endsAt;
+    void settleLockOnServer(l);
+  }, [user?.id, hydrated, settleLockOnServer]);
+
+  useEffect(() => {
+    if (!user?.id || !hydrated) return;
     const L = lockRef.current;
     if (!L) {
       settledEndsAtRef.current = null;
@@ -107,17 +194,8 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     if (tickNow < L.endsAt) return;
     if (settledEndsAtRef.current === L.endsAt) return;
     settledEndsAtRef.current = L.endsAt;
-    const returned = L.principalUsd + L.sessionPnlUsd;
-    addSessionPnlToDay(Math.min(Date.now(), L.endsAt), L.sessionPnlUsd);
-    setBalance((b) => {
-      const next = b + returned;
-      appendLedgerEntry("lock_settle", returned, next);
-      syncLedger();
-      return next;
-    });
-    setActiveLock(null);
-    saveLock(null);
-  }, [tickNow, activeLock, syncLedger]);
+    void settleLockOnServer(L);
+  }, [tickNow, activeLock, user?.id, hydrated, settleLockOnServer]);
 
   const runMinuteTick = useCallback(async () => {
     const L = lockRef.current;
@@ -161,36 +239,40 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- timer tied to lock session identity
   }, [activeLock?.endsAt, activeLock?.startedAt, runMinuteTick]);
 
-  const topUpUsd = useCallback(
-    (amountUsd: number) => {
-      if (!Number.isFinite(amountUsd) || amountUsd <= 0) return;
-      setBalance((b) => {
-        const next = b + amountUsd;
-        appendLedgerEntry("deposit", amountUsd, next);
-        syncLedger();
-        return next;
-      });
-    },
-    [syncLedger]
-  );
-
   const withdrawUsd = useCallback(
-    (amountUsd: number): { ok: true } | { ok: false; error: string } => {
+    async (
+      amountUsd: number,
+      destinationPubkey: string
+    ): Promise<{ ok: true } | { ok: false; error: string }> => {
+      if (!user?.id) {
+        return { ok: false, error: "Sign in required." };
+      }
       if (!Number.isFinite(amountUsd) || amountUsd <= 0) {
         return { ok: false, error: "Enter a positive amount." };
       }
-      if (amountUsd > balance) {
-        return { ok: false, error: "Insufficient USDC balance." };
+      try {
+        const res = await fetch("/api/wallet/withdraw", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ amount: amountUsd, destinationPubkey }),
+        });
+        const data = (await res.json()) as { error?: string; balanceAfter?: number };
+        if (!res.ok) {
+          return { ok: false, error: data.error ?? "Withdrawal failed." };
+        }
+        if (typeof data.balanceAfter === "number") {
+          setBalance(data.balanceAfter);
+        }
+        await refreshWallet();
+        return { ok: true };
+      } catch (e) {
+        return {
+          ok: false,
+          error: e instanceof Error ? e.message : "Withdrawal failed.",
+        };
       }
-      setBalance((b) => {
-        const next = b - amountUsd;
-        appendLedgerEntry("withdraw", amountUsd, next);
-        syncLedger();
-        return next;
-      });
-      return { ok: true };
     },
-    [balance, syncLedger]
+    [user?.id, refreshWallet]
   );
 
   const startLock = useCallback(
@@ -198,6 +280,9 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       amountUsd: number;
       durationMs: number;
     }): Promise<{ ok: true } | { ok: false; error: string }> => {
+      if (!user?.id) {
+        return { ok: false, error: "Sign in with Telegram first." };
+      }
       const { amountUsd, durationMs } = params;
       if (!Number.isFinite(amountUsd) || amountUsd < 10) {
         return { ok: false, error: "Minimum lock is $10." };
@@ -209,6 +294,21 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         return { ok: false, error: "A liquidity lock is already active." };
       }
       try {
+        const lockRes = await fetch("/api/wallet/lock-in", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ amountUsd }),
+        });
+        const lockData = (await lockRes.json()) as {
+          error?: string;
+          balanceAfter?: number;
+        };
+        if (!lockRes.ok) {
+          return { ok: false, error: lockData.error ?? "Could not lock funds." };
+        }
+        if (typeof lockData.balanceAfter === "number") {
+          setBalance(lockData.balanceAfter);
+        }
         const mark = await fetchMarkFrom1m();
         const endsAt = Date.now() + durationMs;
         const next: ActiveLiquidityLock = {
@@ -219,13 +319,8 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
           trades: [],
           prevMark: mark,
         };
-        setBalance((b) => {
-          const nb = b - amountUsd;
-          appendLedgerEntry("lock_in", amountUsd, nb);
-          syncLedger();
-          return nb;
-        });
         setActiveLock(next);
+        await refreshWallet();
         return { ok: true };
       } catch (e) {
         return {
@@ -234,7 +329,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         };
       }
     },
-    [balance, activeLock, syncLedger]
+    [user?.id, balance, activeLock, refreshWallet]
   );
 
   const remainingMs = activeLock
@@ -249,7 +344,8 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       tickNow,
       remainingMs,
       recentLedger,
-      topUpUsd,
+      depositPubkey,
+      refreshWallet,
       withdrawUsd,
       startLock,
     }),
@@ -260,7 +356,8 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       tickNow,
       remainingMs,
       recentLedger,
-      topUpUsd,
+      depositPubkey,
+      refreshWallet,
       withdrawUsd,
       startLock,
     ]

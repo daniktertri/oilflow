@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "db:init": "node --env-file=.env.local scripts/db-init.mjs",
+    "db:init:custody": "node --env-file=scripts/solana-custody/.env scripts/db-init.mjs",
     "dev": "next dev",
     "dev:turbo": "next dev --turbo",
     "clean": "rm -rf .next",
@@ -12,6 +13,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@solana/web3.js": "^1.98.0",
     "@neondatabase/serverless": "^1.0.2",
     "next": "^15.2.0",
     "qrcode": "^1.5.4",

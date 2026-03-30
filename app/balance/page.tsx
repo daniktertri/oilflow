@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useWallet } from "@/components/wallet-provider";
-import { getSolUsdcDepositAddress } from "@/lib/deposit-config";
+import { useTelegramAuth } from "@/components/telegram-auth-provider";
 import type { WalletLedgerEntry } from "@/lib/wallet-storage";
 
 function formatUsd(n: number) {
@@ -31,6 +31,8 @@ function kindLabel(k: WalletLedgerEntry["kind"]): string {
       return "Deposit";
     case "withdraw":
       return "Withdraw";
+    case "withdraw_refund":
+      return "Withdraw refund";
     case "lock_in":
       return "Lock in";
     case "lock_settle":
@@ -41,25 +43,32 @@ function kindLabel(k: WalletLedgerEntry["kind"]): string {
 }
 
 export default function BalancePage() {
+  const { user, loading: authLoading } = useTelegramAuth();
   const {
     balance,
     hydrated,
-    topUpUsd,
-    withdrawUsd,
     recentLedger,
+    depositPubkey,
+    refreshWallet,
+    withdrawUsd,
   } = useWallet();
-  const [topUp, setTopUp] = useState("");
-  const [withdraw, setWithdraw] = useState("");
+  const [withdrawAmount, setWithdrawAmount] = useState("");
+  const [withdrawDest, setWithdrawDest] = useState("");
   const [withdrawError, setWithdrawError] = useState<string | null>(null);
+  const [withdrawBusy, setWithdrawBusy] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  const depositAddress = useMemo(() => getSolUsdcDepositAddress(), []);
+  const depositAddress = depositPubkey ?? "";
   const qrSrc = useMemo(
-    () => `/api/qr?data=${encodeURIComponent(depositAddress)}`,
+    () =>
+      depositAddress
+        ? `/api/qr?data=${encodeURIComponent(depositAddress)}`
+        : "",
     [depositAddress]
   );
 
   const onCopy = async () => {
+    if (!depositAddress) return;
     try {
       await navigator.clipboard.writeText(depositAddress);
       setCopied(true);
@@ -69,25 +78,37 @@ export default function BalancePage() {
     }
   };
 
-  const onTopUp = () => {
-    const n = Number(topUp);
-    if (!Number.isFinite(n) || n <= 0) return;
-    topUpUsd(n);
-    setTopUp("");
-  };
-
-  const onWithdraw = () => {
+  const onWithdraw = async () => {
     setWithdrawError(null);
-    const n = Number(withdraw);
-    const r = withdrawUsd(n);
-    if (!r.ok) {
-      setWithdrawError(r.error);
+    const n = Number(withdrawAmount);
+    const dest = withdrawDest.trim();
+    if (!Number.isFinite(n) || n <= 0) {
+      setWithdrawError("Enter a positive amount.");
       return;
     }
-    setWithdraw("");
+    if (!dest) {
+      setWithdrawError("Enter a Solana destination address.");
+      return;
+    }
+    setWithdrawBusy(true);
+    try {
+      const r = await withdrawUsd(n, dest);
+      if (!r.ok) {
+        setWithdrawError(r.error);
+        return;
+      }
+      setWithdrawAmount("");
+      setWithdrawDest("");
+      await refreshWallet();
+    } finally {
+      setWithdrawBusy(false);
+    }
   };
 
   const ledgerRows = [...recentLedger].reverse();
+
+  const showSignIn = !authLoading && !user;
+  const showNoDeposit = user && hydrated && !depositAddress;
 
   return (
     <div className="min-h-screen bg-[#0c0e12] text-[#c8d0e0]">
@@ -96,9 +117,16 @@ export default function BalancePage() {
           Balance
         </h1>
         <p className="mb-6 text-[10px] text-[#5c6578]">
-          USDC on Solana (SPL). Send USDC to the address below, then record a
-          simulated credit here until on-chain sync is wired.
+          USDC on Solana (SPL). Deposits are credited after the custody worker
+          confirms your on-chain transfer. Withdrawals are sent from the treasury
+          wallet after you request them.
         </p>
+
+        {showSignIn && (
+          <p className="mb-6 rounded border border-[#2a3140] bg-[#12151c] p-3 text-[10px] text-[#5c6578]">
+            Sign in with Telegram to see your deposit address and balance.
+          </p>
+        )}
 
         <section
           data-tour="tour-balance-available"
@@ -108,7 +136,7 @@ export default function BalancePage() {
             Available
           </div>
           <div className="font-mono text-xl text-[#c8d0e0]">
-            {hydrated ? formatUsd(balance) : "—"}
+            {!user || !hydrated ? "—" : formatUsd(balance)}
           </div>
         </section>
 
@@ -119,99 +147,100 @@ export default function BalancePage() {
           <h2 className="mb-3 text-[10px] uppercase tracking-wider text-[#5c6578]">
             Deposit (Solana · USDC)
           </h2>
-          <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start">
-            <div className="rounded bg-white p-3">
-              <img
-                src={qrSrc}
-                alt=""
-                width={160}
-                height={160}
-                className="block h-[160px] w-[160px]"
-                decoding="async"
-              />
-            </div>
-            <div className="min-w-0 flex-1">
-              <label className="mb-1 block text-[10px] text-[#5c6578]">
-                Deposit address
-              </label>
-              <div className="mb-2 break-all font-mono text-[11px] leading-relaxed text-[#e0e0e0]">
-                {depositAddress}
+          {showNoDeposit ? (
+            <p className="text-[10px] leading-relaxed text-[#5c6578]">
+              Your personal deposit address is not ready yet. Run the custody
+              worker on your VPS (see{" "}
+              <code className="text-[#5c6578]">scripts/solana-custody</code>) so
+              it can provision wallets in the database.
+            </p>
+          ) : (
+            <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start">
+              <div className="rounded bg-white p-3">
+                {qrSrc ? (
+                  <img
+                    src={qrSrc}
+                    alt=""
+                    width={160}
+                    height={160}
+                    className="block h-[160px] w-[160px]"
+                    decoding="async"
+                  />
+                ) : (
+                  <div className="flex h-[160px] w-[160px] items-center justify-center bg-[#eee] text-[10px] text-[#666]">
+                    —
+                  </div>
+                )}
               </div>
-              <button
-                type="button"
-                onClick={() => void onCopy()}
-                className="border border-[#2a3140] px-3 py-1.5 text-[10px] font-mono uppercase text-[#00e5ff] hover:border-[#00e5ff]"
-              >
-                {copied ? "Copied" : "Copy address"}
-              </button>
-              <p className="mt-3 text-[10px] leading-relaxed text-[#5c6578]">
-                Set{" "}
-                <code className="text-[#5c6578]">
-                  NEXT_PUBLIC_SOL_USDC_DEPOSIT_ADDRESS
-                </code>{" "}
-                in <code className="text-[#5c6578]">.env.local</code> for your
-                production vault.
-              </p>
+              <div className="min-w-0 flex-1">
+                <label className="mb-1 block text-[10px] text-[#5c6578]">
+                  Your deposit address
+                </label>
+                <div className="mb-2 break-all font-mono text-[11px] leading-relaxed text-[#e0e0e0]">
+                  {depositAddress || "—"}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void onCopy()}
+                  disabled={!depositAddress}
+                  className="border border-[#2a3140] px-3 py-1.5 text-[10px] font-mono uppercase text-[#00e5ff] hover:border-[#00e5ff] disabled:opacity-40"
+                >
+                  {copied ? "Copied" : "Copy address"}
+                </button>
+                <p className="mt-3 text-[10px] leading-relaxed text-[#5c6578]">
+                  Send only USDC (SPL) on Solana to this address. Other assets may
+                  be lost.
+                </p>
+              </div>
             </div>
-          </div>
+          )}
         </section>
 
         <section
           data-tour="tour-balance-actions"
-          className="mb-6 grid gap-4 sm:grid-cols-2"
+          className="mb-6 rounded border border-[#1e2430] bg-[#12151c] p-4"
         >
-          <div className="rounded border border-[#1e2430] bg-[#12151c] p-4">
-            <h2 className="mb-3 text-[10px] uppercase tracking-wider text-[#5c6578]">
-              Top-up (simulated)
-            </h2>
+          <h2 className="mb-3 text-[10px] uppercase tracking-wider text-[#5c6578]">
+            Withdraw (on-chain)
+          </h2>
+          <p className="mb-3 text-[10px] leading-relaxed text-[#5c6578]">
+            Request a transfer from the app treasury to your Solana wallet. Amount
+            is deducted from your available balance; the VPS worker signs and
+            sends USDC.
+          </p>
+          <div className="flex flex-col gap-2 sm:max-w-md">
+            <input
+              type="text"
+              placeholder="Destination Solana address"
+              className="w-full border border-[#2a3140] bg-[#0c0e12] px-2 py-1.5 font-mono text-[10px] text-[#c8d0e0] outline-none focus:border-[#ffc107]"
+              value={withdrawDest}
+              onChange={(e) => setWithdrawDest(e.target.value)}
+              disabled={!user}
+            />
             <div className="flex gap-1">
               <input
                 type="number"
-                min={1}
-                step={1}
+                min={0}
+                step="0.01"
                 placeholder="Amount (USDC)"
                 className="min-w-0 flex-1 border border-[#2a3140] bg-[#0c0e12] px-2 py-1.5 font-mono text-[10px] text-[#c8d0e0] outline-none focus:border-[#ffc107]"
-                value={topUp}
-                onChange={(e) => setTopUp(e.target.value)}
+                value={withdrawAmount}
+                onChange={(e) => setWithdrawAmount(e.target.value)}
+                disabled={!user}
               />
               <button
                 type="button"
-                onClick={onTopUp}
-                className="border border-[#2a3140] px-2 py-1.5 text-[10px] font-mono uppercase text-[#ffc107] hover:border-[#ffc107]"
+                onClick={() => void onWithdraw()}
+                disabled={!user || withdrawBusy}
+                className="border border-[#2a3140] px-2 py-1.5 text-[10px] font-mono uppercase text-[#ff5252] hover:border-[#ff5252] disabled:opacity-40"
               >
-                Add
+                {withdrawBusy ? "…" : "Withdraw"}
               </button>
             </div>
-            <p className="mt-2 text-[10px] text-[#5c6578]">
-              Credits your in-app balance after you send on-chain (demo).
-            </p>
           </div>
-          <div className="rounded border border-[#1e2430] bg-[#12151c] p-4">
-            <h2 className="mb-3 text-[10px] uppercase tracking-wider text-[#5c6578]">
-              Withdraw (simulated)
-            </h2>
-            <div className="flex gap-1">
-              <input
-                type="number"
-                min={1}
-                step={1}
-                placeholder="Amount (USDC)"
-                className="min-w-0 flex-1 border border-[#2a3140] bg-[#0c0e12] px-2 py-1.5 font-mono text-[10px] text-[#c8d0e0] outline-none focus:border-[#ffc107]"
-                value={withdraw}
-                onChange={(e) => setWithdraw(e.target.value)}
-              />
-              <button
-                type="button"
-                onClick={onWithdraw}
-                className="border border-[#2a3140] px-2 py-1.5 text-[10px] font-mono uppercase text-[#ff5252] hover:border-[#ff5252]"
-              >
-                Withdraw
-              </button>
-            </div>
-            {withdrawError && (
-              <p className="mt-2 text-[10px] text-[#ff5252]">{withdrawError}</p>
-            )}
-          </div>
+          {withdrawError && (
+            <p className="mt-2 text-[10px] text-[#ff5252]">{withdrawError}</p>
+          )}
         </section>
 
         <section
@@ -242,12 +271,18 @@ export default function BalancePage() {
                 <span>{kindLabel(row.kind)}</span>
                 <span
                   className={`text-right ${
-                    row.kind === "withdraw" || row.kind === "lock_in"
-                      ? "text-[#ff8a80]"
+                    row.kind === "withdraw" ||
+                    row.kind === "lock_in" ||
+                    row.kind === "withdraw_refund"
+                      ? row.kind === "withdraw_refund"
+                        ? "text-[#00c853]"
+                        : "text-[#ff8a80]"
                       : "text-[#00c853]"
                   }`}
                 >
-                  {row.kind === "withdraw" || row.kind === "lock_in" ? "−" : "+"}
+                  {row.kind === "withdraw" || row.kind === "lock_in"
+                    ? "−"
+                    : "+"}
                   {formatUsd(row.amountUsd)}
                 </span>
                 <span className="text-right text-[#c8d0e0]">
