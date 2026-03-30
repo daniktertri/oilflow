@@ -1,0 +1,46 @@
+@import "tailwindcss";
+
+@theme {
+  --font-mono: var(--font-jetbrains), ui-monospace, monospace;
+  --color-terminal-bg: #0c0e12;
+  --color-terminal-panel: #12151c;
+  --color-terminal-border: #1e2430;
+  --color-terminal-muted: #5c6578;
+  --color-terminal-green: #00c853;
+  --color-terminal-red: #ff5252;
+  --color-terminal-amber: #ffc107;
+  --color-terminal-cyan: #00e5ff;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background: var(--color-terminal-bg);
+  color: #c8d0e0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.02em;
+}
+
+/* Scrollbars — terminal */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #2a3140 #0c0e12;
+}
+
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+*::-webkit-scrollbar-track {
+  background: #0c0e12;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: #2a3140;
+  border-radius: 2px;
+}
