@@ -19,7 +19,7 @@ function formatUsdCompact(n: number) {
 /** SVG area chart (no Recharts — avoids Webpack `originalFactory.call` / HMR bugs). */
 export function PriceChart({ data }: { data: PriceChartRow[] }) {
   const wrapRef = useRef<HTMLDivElement>(null);
-  const [size, setSize] = useState({ w: 800, h: 360 });
+  const [size, setSize] = useState({ w: 800, h: 400 });
   const [hover, setHover] = useState<{
     i: number;
     x: number;
@@ -34,7 +34,8 @@ export function PriceChart({ data }: { data: PriceChartRow[] }) {
     const measure = () => {
       const r = el.getBoundingClientRect();
       const w = Math.max(320, Math.floor(r.width));
-      const h = Math.max(280, Math.min(480, Math.floor(r.height) || 360));
+      const rawH = Math.floor(r.height);
+      const h = Math.max(280, rawH > 0 ? rawH : 400);
       setSize((prev) =>
         prev.w === w && prev.h === h ? prev : { w, h }
       );
@@ -126,7 +127,7 @@ export function PriceChart({ data }: { data: PriceChartRow[] }) {
 
   if (data.length === 0) {
     return (
-      <div className="flex h-[360px] w-full items-center justify-center border border-dashed border-[#2a3140] bg-[#0c0e12]/50 font-mono text-[12px] text-[#5c6578]">
+      <div className="flex min-h-[min(52vh,400px)] w-full flex-1 items-center justify-center border border-dashed border-[#2a3140] bg-[#12151c] font-mono text-[13px] text-[#5c6578]">
         No candle data to display
       </div>
     );
@@ -138,14 +139,7 @@ export function PriceChart({ data }: { data: PriceChartRow[] }) {
     layout;
 
   return (
-    <div
-      ref={wrapRef}
-      className="relative w-full"
-      style={{
-        height: "clamp(280px, 42vh, 420px)",
-        minHeight: 320,
-      }}
-    >
+    <div ref={wrapRef} className="relative h-full min-h-[280px] w-full flex-1">
       <svg
         width={size.w}
         height={size.h}
@@ -176,7 +170,7 @@ export function PriceChart({ data }: { data: PriceChartRow[] }) {
             <stop offset="100%" stopColor="#ffc107" stopOpacity={0} />
           </linearGradient>
         </defs>
-        <rect x={0} y={0} width={size.w} height={size.h} fill="#0c0e12" />
+        <rect x={0} y={0} width={size.w} height={size.h} fill="#12151c" />
 
         {ticks.map((tk, idx) => (
           <g key={`gy-${idx}`}>
@@ -243,7 +237,7 @@ export function PriceChart({ data }: { data: PriceChartRow[] }) {
 
       {hover && pts[hover.i] && (
         <div
-          className="pointer-events-none absolute z-10 rounded border border-[#2a3140] bg-[#12151c] px-2 py-1 font-mono text-[10px] text-[#c8d0e0] shadow-lg"
+          className="pointer-events-none absolute z-10 rounded border border-[#2a3140] bg-[#12151c] px-2.5 py-1.5 font-mono text-[11px] text-[#c8d0e0] shadow-lg"
           style={{
             left: Math.min(size.w - 140, Math.max(8, hover.x - 60)),
             top: Math.max(8, hover.y - 44),

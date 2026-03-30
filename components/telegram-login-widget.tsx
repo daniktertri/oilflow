@@ -91,20 +91,20 @@ export function TelegramLoginWidget({ botUsername, onAuth }: Props) {
 
   return (
     <div
-      className="relative mx-auto h-12 w-full max-w-[280px]"
+      className="relative mx-auto h-14 w-full max-w-[320px]"
       role="group"
       aria-label="Login with Telegram"
     >
       <div
-        className="pointer-events-none absolute inset-0 z-0 flex items-center justify-center gap-2.5 rounded-lg border border-white/10 bg-[#229ED9] px-4 font-mono text-[12px] font-medium tracking-wide text-white shadow-[0_4px_14px_rgba(0,0,0,0.35)]"
+        className="pointer-events-none absolute inset-0 z-0 flex items-center justify-center gap-3 rounded-lg border border-white/10 bg-[#229ED9] px-5 font-mono text-[13px] font-medium tracking-wide text-white shadow-[0_4px_14px_rgba(0,0,0,0.35)]"
         aria-hidden
       >
-        <TelegramGlyph className="h-[18px] w-[18px] shrink-0" />
+        <TelegramGlyph className="h-5 w-5 shrink-0" />
         <span>Login with Telegram</span>
       </div>
       <div
         ref={containerRef}
-        className="relative z-10 h-full min-h-[48px] w-full overflow-hidden rounded-lg"
+        className="relative z-10 h-full min-h-[56px] w-full overflow-hidden rounded-lg"
       />
     </div>
   );

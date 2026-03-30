@@ -216,7 +216,7 @@ export default function OilTradePage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-[#0c0e12] text-[#c8d0e0]">
-      <header className="flex flex-wrap items-center justify-between gap-2 border-b border-[#1e2430] bg-[#0a0c10] px-3 py-2">
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[#1e2430] bg-[#0a0c10] px-4 py-2.5">
         <div className="flex items-center gap-4">
           <span className="font-mono text-[#ffc107]">
             {WTIOIL_USDC.displayPair}
@@ -225,13 +225,13 @@ export default function OilTradePage() {
           <span className="max-w-[min(40vw,28rem)] truncate text-[#e0e0e0]">
             WTI crude oil · USDC margin
           </span>
-          <span className="rounded border border-[#00c853] bg-[#0d1f14] px-2 py-0.5 text-[10px] text-[#00c853]">
+          <span className="rounded border border-[#00c853] bg-[#0d1f14] px-2.5 py-1 text-[12px] text-[#00c853]">
             HYPERLIQUID
           </span>
         </div>
         <div
           data-tour="tour-header-wallet"
-          className="flex flex-wrap items-center gap-4 font-mono text-[11px]"
+          className="flex flex-wrap items-center gap-4 font-mono text-[13px]"
         >
           <Link
             href="/balance"
@@ -268,7 +268,7 @@ export default function OilTradePage() {
         </div>
       </header>
 
-      <div className="grid min-h-0 flex-1 grid-cols-12 gap-px bg-[#1e2430] p-px">
+      <div className="grid min-h-0 flex-1 grid-cols-12 grid-rows-[auto_minmax(0,1fr)_auto_auto] gap-px bg-[#1e2430] p-px">
         <section
           data-tour="tour-stats"
           className="col-span-12 grid grid-cols-2 gap-px bg-[#1e2430] sm:grid-cols-3 lg:grid-cols-6"
@@ -305,18 +305,18 @@ export default function OilTradePage() {
               color: "text-[#00e5ff]",
             },
           ].map((m) => (
-            <div key={m.label} className="bg-[#12151c] px-3 py-2">
-              <div className="text-[10px] uppercase tracking-wider text-[#5c6578]">
+            <div key={m.label} className="bg-[#12151c] px-4 py-2.5">
+              <div className="text-[12px] uppercase tracking-wider text-[#5c6578]">
                 {m.label}
               </div>
-              <div className={`font-mono text-sm ${m.color}`}>{m.value}</div>
+              <div className={`font-mono text-base ${m.color}`}>{m.value}</div>
             </div>
           ))}
         </section>
 
-        <main className="col-span-12 flex min-h-[360px] flex-col bg-[#12151c]">
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#1e2430] px-3 py-2">
-            <span className="text-[10px] uppercase tracking-wider text-[#5c6578]">
+        <main className="col-span-12 flex h-full min-h-0 flex-col bg-[#12151c]">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#1e2430] px-4 py-2.5">
+            <span className="text-[12px] uppercase tracking-wider text-[#5c6578]">
               {WTIOIL_USDC.displayPair} · last (USDC)
             </span>
             <span className="font-mono text-[#ffc107]">
@@ -325,24 +325,24 @@ export default function OilTradePage() {
           </div>
           <div
             data-tour="tour-chart-controls"
-            className="flex flex-wrap items-end gap-2 border-b border-[#1e2430] px-3 py-2"
+            className="flex flex-wrap items-end gap-3 border-b border-[#1e2430] px-4 py-2.5"
           >
-            <label className="text-[10px] uppercase tracking-wider text-[#5c6578]">
+            <label className="text-[12px] uppercase tracking-wider text-[#5c6578]">
               View
             </label>
             <select
-              className="min-w-[6.5rem] border border-[#2a3140] bg-[#0c0e12] px-2 py-1.5 font-mono text-[10px] text-[#c8d0e0] outline-none focus:border-[#ffc107]"
+              className="min-h-[2.5rem] min-w-[7rem] border border-[#2a3140] bg-[#0c0e12] px-3 py-2 font-mono text-[12px] text-[#c8d0e0] outline-none focus:border-[#ffc107]"
               value={chartView}
               onChange={(e) => setChartView(e.target.value as ChartView)}
             >
               <option value="area">Area (last)</option>
               <option value="candles">Candles (OHLC)</option>
             </select>
-            <label className="text-[10px] uppercase tracking-wider text-[#5c6578]">
+            <label className="text-[12px] uppercase tracking-wider text-[#5c6578]">
               Interval
             </label>
             <select
-              className="min-w-[5rem] border border-[#2a3140] bg-[#0c0e12] px-2 py-1.5 font-mono text-[10px] text-[#c8d0e0] outline-none focus:border-[#ffc107]"
+              className="min-h-[2.5rem] min-w-[5.5rem] border border-[#2a3140] bg-[#0c0e12] px-3 py-2 font-mono text-[12px] text-[#c8d0e0] outline-none focus:border-[#ffc107]"
               value={chartInterval}
               onChange={(e) =>
                 setChartInterval(e.target.value as HlChartInterval)
@@ -357,25 +357,25 @@ export default function OilTradePage() {
             <button
               type="button"
               onClick={() => setRefresh((n) => n + 1)}
-              className="border border-[#2a3140] px-2 py-1.5 text-[10px] font-mono uppercase text-[#c8d0e0] hover:border-[#ffc107]"
+              className="min-h-[2.5rem] border border-[#2a3140] px-3 py-2 text-[12px] font-mono uppercase text-[#c8d0e0] hover:border-[#ffc107]"
             >
               Refresh chart
             </button>
             {error && (
-              <span className="text-[10px] text-[#ff5252]">Chart: {error}</span>
+              <span className="text-[12px] text-[#ff5252]">Chart: {error}</span>
             )}
             {loading && (
-              <span className="text-[10px] text-[#5c6578]">Loading…</span>
+              <span className="text-[12px] text-[#5c6578]">Loading…</span>
             )}
           </div>
           {error && (
-            <div className="border-b border-[#ff5252]/40 bg-[#1f0d0d] px-3 py-2 text-[11px] text-[#ff8a80]">
+            <div className="border-b border-[#ff5252]/40 bg-[#1f0d0d] px-4 py-2.5 text-[13px] text-[#ff8a80]">
               Chart data: {error}
             </div>
           )}
-          <div className="min-h-0 flex-1 p-2">
+          <div className="flex min-h-0 flex-1 flex-col">
             {loading && chartData.length === 0 && !error && (
-              <p className="mb-2 text-center font-mono text-[11px] text-[#5c6578]">
+              <p className="mb-2 text-center font-mono text-[13px] text-[#5c6578]">
                 Loading market data…
               </p>
             )}
@@ -388,28 +388,28 @@ export default function OilTradePage() {
         </main>
 
         <section data-tour="tour-bot-feed" className="col-span-12 bg-[#12151c]">
-          <div className="border-t border-b border-[#1e2430] px-3 py-2">
-            <div className="text-[10px] uppercase tracking-wider text-[#5c6578]">
+          <div className="border-t border-b border-[#1e2430] px-4 py-2.5">
+            <div className="text-[12px] uppercase tracking-wider text-[#5c6578]">
               Global bot activity
             </div>
-            <div className="text-[10px] text-[#5c6578]">
+            <div className="text-[12px] text-[#5c6578]">
               Market-wide executions · {WTIOIL_USDC.displayPair}
             </div>
           </div>
-          <div className="max-h-[220px] overflow-y-auto">
-            <div className="grid grid-cols-[1fr_0.8fr_1fr_1fr] gap-x-2 border-b border-[#1e2430] px-3 py-1.5 font-mono text-[10px] text-[#5c6578] sm:grid-cols-[1fr_0.7fr_1fr_1fr]">
+          <div className="max-h-[280px] overflow-y-auto">
+            <div className="grid grid-cols-[1fr_0.8fr_1fr_1fr] gap-x-3 border-b border-[#1e2430] px-4 py-2 font-mono text-[12px] text-[#5c6578] sm:grid-cols-[1fr_0.7fr_1fr_1fr]">
               <span>TIME (UTC)</span>
               <span>SIDE</span>
               <span className="text-right">PRICE</span>
               <span className="text-right">NOTIONAL</span>
             </div>
             {error && (
-              <p className="px-3 py-4 text-center text-[10px] text-[#5c6578]">
+              <p className="px-4 py-5 text-center text-[12px] text-[#5c6578]">
                 Feed updates with the chart when data is available.
               </p>
             )}
             {!error && loading && history.length === 0 && (
-              <p className="px-3 py-4 text-center text-[10px] text-[#5c6578]">
+              <p className="px-4 py-5 text-center text-[12px] text-[#5c6578]">
                 Loading…
               </p>
             )}
@@ -417,7 +417,7 @@ export default function OilTradePage() {
               !loading &&
               globalBotTrades.length === 0 &&
               history.length > 0 && (
-                <p className="px-3 py-4 text-center text-[10px] text-[#5c6578]">
+                <p className="px-4 py-5 text-center text-[12px] text-[#5c6578]">
                   No activity for this range yet.
                 </p>
               )}
@@ -425,7 +425,7 @@ export default function OilTradePage() {
               globalBotTrades.map((t) => (
                 <div
                   key={t.id}
-                  className="grid grid-cols-[1fr_0.8fr_1fr_1fr] gap-x-2 border-b border-[#1a1f28] px-3 py-1.5 font-mono text-[10px] sm:grid-cols-[1fr_0.7fr_1fr_1fr]"
+                  className="grid grid-cols-[1fr_0.8fr_1fr_1fr] gap-x-3 border-b border-[#1a1f28] px-4 py-2 font-mono text-[12px] sm:grid-cols-[1fr_0.7fr_1fr_1fr]"
                 >
                   <span className="text-[#5c6578]">
                     {new Date(t.time).toISOString().slice(11, 19)}
@@ -446,7 +446,7 @@ export default function OilTradePage() {
           </div>
         </section>
 
-        <section className="col-span-12 border-t border-[#1e2430] bg-[#12151c] px-3 py-2 text-[10px] text-[#5c6578]">
+        <section className="col-span-12 border-t border-[#1e2430] bg-[#12151c] px-4 py-2.5 text-[12px] text-[#5c6578]">
           {WTIOIL_USDC.displayPair} uses API coin{" "}
           <code className="text-[#5c6578]">{WTIOIL_USDC.coin}</code>.           Chart:
           candle close. Wallet, dashboard, and locks:{" "}

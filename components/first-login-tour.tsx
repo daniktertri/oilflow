@@ -378,8 +378,8 @@ export function FirstLoginTour() {
       )}
 
       <div className="absolute inset-0 flex items-center justify-center p-4">
-        <div className="w-full max-w-md rounded border border-[#2a3140] bg-[#0c0e12] p-4 shadow-xl shadow-black/50">
-          <p className="mb-1 text-[10px] uppercase tracking-wider text-[#5c6578]">
+        <div className="w-full max-w-md rounded border border-[#2a3140] bg-[#0c0e12] p-5 shadow-xl shadow-black/50">
+          <p className="mb-1 text-[11px] uppercase tracking-wider text-[#5c6578]">
             Quick tour · {step + 1} / {STEPS.length}
           </p>
           <h2
@@ -390,12 +390,12 @@ export function FirstLoginTour() {
           </h2>
           <div
             id="first-login-tour-desc"
-            className="mb-6 text-[11px] leading-relaxed text-[#c8d0e0]"
+            className="mb-6 text-[12px] leading-relaxed text-[#c8d0e0]"
           >
             {current.body}
           </div>
           {hintPath ? (
-            <p className="mb-4 text-[10px] text-[#5c6578]">
+            <p className="mb-4 text-[11px] text-[#5c6578]">
               Opening{" "}
               <Link
                 href={hintPath}
@@ -407,7 +407,7 @@ export function FirstLoginTour() {
             </p>
           ) : null}
           {current.targetAttr && !showHole && !hintPath ? (
-            <p className="mb-4 text-[10px] text-[#5c6578]">
+            <p className="mb-4 text-[11px] text-[#5c6578]">
               Go to{" "}
               <Link
                 href={expectedPath ?? "/"}
@@ -422,7 +422,7 @@ export function FirstLoginTour() {
             <button
               type="button"
               onClick={finish}
-              className="text-[10px] uppercase text-[#5c6578] hover:text-[#c8d0e0]"
+              className="text-[11px] uppercase text-[#5c6578] hover:text-[#c8d0e0]"
             >
               Skip tour
             </button>
@@ -431,14 +431,14 @@ export function FirstLoginTour() {
                 type="button"
                 disabled={step === 0}
                 onClick={back}
-                className="border border-[#2a3140] px-3 py-1.5 text-[10px] uppercase text-[#c8d0e0] hover:border-[#ffc107] disabled:opacity-40"
+                className="min-h-[2.5rem] border border-[#2a3140] px-4 py-2 text-[11px] uppercase text-[#c8d0e0] hover:border-[#ffc107] disabled:opacity-40"
               >
                 Back
               </button>
               <button
                 type="button"
                 onClick={next}
-                className="border border-[#ffc107] bg-[#1a1508] px-3 py-1.5 text-[10px] uppercase text-[#ffc107] hover:bg-[#221a0a]"
+                className="min-h-[2.5rem] border border-[#ffc107] bg-[#1a1508] px-4 py-2 text-[11px] uppercase text-[#ffc107] hover:bg-[#221a0a]"
               >
                 {isLast ? "Done" : "Next"}
               </button>

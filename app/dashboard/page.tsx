@@ -51,11 +51,11 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-[#0c0e12] text-[#c8d0e0]">
-      <div className="mx-auto max-w-4xl px-3 py-6">
-        <h1 className="mb-1 font-mono text-[13px] uppercase tracking-wider text-[#ffc107]">
+      <div className="mx-auto max-w-4xl px-4 py-8">
+        <h1 className="mb-1 font-mono text-[14px] uppercase tracking-wider text-[#ffc107]">
           Dashboard
         </h1>
-        <p className="mb-6 text-[10px] text-[#5c6578]">
+        <p className="mb-6 text-[11px] text-[#5c6578]">
           Locked funds, session P&L, and realized P&L by day (from completed locks).{" "}
           <Link href="/lock" className="text-[#00e5ff] hover:underline">
             Lock liquidity
@@ -100,45 +100,45 @@ export default function DashboardPage() {
               color: "text-[#ffc107]",
             },
           ].map((c) => (
-            <div key={c.label} className="bg-[#12151c] px-4 py-3">
-              <div className="text-[10px] uppercase tracking-wider text-[#5c6578]">
+            <div key={c.label} className="bg-[#12151c] px-5 py-4">
+              <div className="text-[11px] uppercase tracking-wider text-[#5c6578]">
                 {c.label}
               </div>
-              <div className={`mt-1 font-mono text-lg ${c.color}`}>{c.value}</div>
-              <div className="mt-0.5 text-[9px] text-[#5c6578]">{c.sub}</div>
+              <div className={`mt-1 font-mono text-xl ${c.color}`}>{c.value}</div>
+              <div className="mt-0.5 text-[11px] text-[#5c6578]">{c.sub}</div>
             </div>
           ))}
         </div>
 
         <div className="mb-6 grid gap-4 sm:grid-cols-2">
-          <div className="rounded border border-[#1e2430] bg-[#12151c] p-4">
-            <div className="mb-1 text-[10px] uppercase tracking-wider text-[#5c6578]">
+          <div className="rounded border border-[#1e2430] bg-[#12151c] p-5">
+            <div className="mb-1 text-[11px] uppercase tracking-wider text-[#5c6578]">
               Today (realized)
             </div>
             <div
-              className={`font-mono text-xl ${
+              className={`font-mono text-2xl ${
                 todayRealized >= 0 ? "text-[#00c853]" : "text-[#ff5252]"
               }`}
             >
               {hydrated ? formatUsd(todayRealized) : "—"}
             </div>
-            <p className="mt-2 text-[9px] leading-relaxed text-[#5c6578]">
+            <p className="mt-2 text-[11px] leading-relaxed text-[#5c6578]">
               Settled lock P&L credited today. Open session P&L is merged into the
               chart below.
             </p>
           </div>
-          <div className="rounded border border-[#1e2430] bg-[#12151c] p-4">
-            <div className="mb-1 text-[10px] uppercase tracking-wider text-[#5c6578]">
+          <div className="rounded border border-[#1e2430] bg-[#12151c] p-5">
+            <div className="mb-1 text-[11px] uppercase tracking-wider text-[#5c6578]">
               All-time realized
             </div>
             <div
-              className={`font-mono text-xl ${
+              className={`font-mono text-2xl ${
                 totalRealized >= 0 ? "text-[#00c853]" : "text-[#ff5252]"
               }`}
             >
               {hydrated ? formatUsd(totalRealized) : "—"}
             </div>
-            <p className="mt-2 text-[9px] leading-relaxed text-[#5c6578]">
+            <p className="mt-2 text-[11px] leading-relaxed text-[#5c6578]">
               Sum of daily realized P&L from completed liquidity locks in this
               browser.
             </p>
@@ -147,14 +147,14 @@ export default function DashboardPage() {
 
         <section
           data-tour="tour-dashboard-pnl"
-          className="rounded border border-[#1e2430] bg-[#12151c] p-4"
+          className="rounded border border-[#1e2430] bg-[#12151c] p-5"
         >
           <div className="mb-2 flex flex-wrap items-end justify-between gap-2">
             <div>
-              <h2 className="text-[10px] uppercase tracking-wider text-[#5c6578]">
+              <h2 className="text-[11px] uppercase tracking-wider text-[#5c6578]">
                 Daily P&L (realized)
               </h2>
-              <p className="text-[9px] text-[#5c6578]">
+              <p className="text-[11px] text-[#5c6578]">
                 Last ~45 days · USDC · local calendar day
               </p>
             </div>

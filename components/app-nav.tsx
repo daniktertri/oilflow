@@ -16,13 +16,13 @@ const links: { href: string; label: string }[] = [
 /** Static shell while pathname hook resolves — avoids Next/Webpack issues with `search-params` chunk. */
 export function AppNavFallback() {
   return (
-    <nav className="flex flex-wrap items-center gap-1 border-b border-[#1e2430] bg-[#0a0c10] px-3 py-2">
-      <span className="mr-3 font-mono text-[11px] text-[#ffc107]">OilFlow</span>
+    <nav className="flex flex-wrap items-center gap-2 border-b border-[#1e2430] bg-[#0a0c10] px-4 py-2.5">
+      <span className="mr-3 font-mono text-[12px] text-[#ffc107]">OilFlow</span>
       {links.map(({ href, label }) => (
         <Link
           key={href}
           href={href}
-          className="rounded px-2.5 py-1 font-mono text-[11px] uppercase text-[#5c6578] hover:bg-[#12151c] hover:text-[#c8d0e0]"
+          className="rounded px-3 py-1.5 font-mono text-[12px] uppercase text-[#5c6578] hover:bg-[#12151c] hover:text-[#c8d0e0]"
         >
           {label}
         </Link>
@@ -38,9 +38,9 @@ function AppNavInner() {
   return (
     <nav
       data-tour="tour-nav"
-      className="flex flex-wrap items-center gap-1 border-b border-[#1e2430] bg-[#0a0c10] px-3 py-2"
+      className="flex flex-wrap items-center gap-2 border-b border-[#1e2430] bg-[#0a0c10] px-4 py-2.5"
     >
-      <span className="mr-3 font-mono text-[11px] text-[#ffc107]">OilFlow</span>
+      <span className="mr-3 font-mono text-[12px] text-[#ffc107]">OilFlow</span>
       {links.map(({ href, label }) => {
         const active =
           href === "/"
@@ -50,7 +50,7 @@ function AppNavInner() {
           <Link
             key={href}
             href={href}
-            className={`rounded px-2.5 py-1 font-mono text-[11px] uppercase tracking-wide transition-colors ${
+            className={`rounded px-3 py-1.5 font-mono text-[12px] uppercase tracking-wide transition-colors ${
               active
                 ? "bg-[#1e2430] text-[#00e5ff]"
                 : "text-[#5c6578] hover:bg-[#12151c] hover:text-[#c8d0e0]"
@@ -60,7 +60,7 @@ function AppNavInner() {
           </Link>
         );
       })}
-      <span className="ml-auto flex items-center gap-2 font-mono text-[11px]">
+      <span className="ml-auto flex items-center gap-2 font-mono text-[12px]">
         {loading ? (
           <span className="text-[#5c6578]">…</span>
         ) : user ? (
@@ -71,7 +71,7 @@ function AppNavInner() {
             <button
               type="button"
               onClick={() => void logout()}
-              className="rounded px-2 py-0.5 text-[#5c6578] hover:bg-[#12151c] hover:text-[#c8d0e0]"
+              className="rounded px-2.5 py-1 text-[#5c6578] hover:bg-[#12151c] hover:text-[#c8d0e0]"
             >
               Log out
             </button>
@@ -79,7 +79,7 @@ function AppNavInner() {
         ) : (
           <Link
             href="/login"
-            className="rounded px-2.5 py-1 text-[#5c6578] hover:bg-[#12151c] hover:text-[#00e5ff]"
+            className="rounded px-3 py-1.5 text-[#5c6578] hover:bg-[#12151c] hover:text-[#00e5ff]"
           >
             Log in
           </Link>

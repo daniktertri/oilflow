@@ -3,20 +3,20 @@ import Link from "next/link";
 export default function HowItWorksPage() {
   return (
     <div className="min-h-screen bg-[#0c0e12] text-[#c8d0e0]">
-      <div className="mx-auto max-w-3xl px-3 py-8">
-        <h1 className="mb-2 font-mono text-[13px] uppercase tracking-wider text-[#ffc107]">
+      <div className="mx-auto max-w-3xl px-4 py-10">
+        <h1 className="mb-2 font-mono text-[14px] uppercase tracking-wider text-[#ffc107]">
           How it works
         </h1>
-        <p className="mb-8 text-[10px] text-[#5c6578]">
+        <p className="mb-8 text-[11px] text-[#5c6578]">
           OilFlow · WTI crude on Hyperliquid · USDC margin
         </p>
 
         <div className="space-y-6">
-          <section className="rounded border border-[#1e2430] bg-[#12151c] p-4">
-            <h2 className="mb-3 text-[10px] uppercase tracking-wider text-[#00e5ff]">
+          <section className="rounded border border-[#1e2430] bg-[#12151c] p-5">
+            <h2 className="mb-3 text-[11px] uppercase tracking-wider text-[#00e5ff]">
               The AI trading bot
             </h2>
-            <div className="space-y-3 text-[11px] leading-relaxed text-[#c8d0e0]">
+            <div className="space-y-3 text-[12px] leading-relaxed text-[#c8d0e0]">
               <p>
                 OilFlow is built around an <strong className="text-[#ffc107]">AI trading bot</strong>{" "}
                 that continuously scans and interprets{" "}
@@ -39,11 +39,11 @@ export default function HowItWorksPage() {
             </div>
           </section>
 
-          <section className="rounded border border-[#1e2430] bg-[#12151c] p-4">
-            <h2 className="mb-3 text-[10px] uppercase tracking-wider text-[#00e5ff]">
+          <section className="rounded border border-[#1e2430] bg-[#12151c] p-5">
+            <h2 className="mb-3 text-[11px] uppercase tracking-wider text-[#00e5ff]">
               Earning by providing liquidity
             </h2>
-            <p className="text-[11px] leading-relaxed text-[#c8d0e0]">
+            <p className="text-[12px] leading-relaxed text-[#c8d0e0]">
               As a user, you do not need to pick every headline yourself. You can{" "}
               <strong>allocate USDC as liquidity</strong> that the bot may use
               within the product rules: when the strategy is profitable, your
@@ -58,11 +58,11 @@ export default function HowItWorksPage() {
             </p>
           </section>
 
-          <section className="rounded border border-[#1e2430] bg-[#12151c] p-4">
-            <h2 className="mb-3 text-[10px] uppercase tracking-wider text-[#00e5ff]">
+          <section className="rounded border border-[#1e2430] bg-[#12151c] p-5">
+            <h2 className="mb-3 text-[11px] uppercase tracking-wider text-[#00e5ff]">
               The locking mechanism
             </h2>
-            <div className="space-y-3 text-[11px] leading-relaxed text-[#c8d0e0]">
+            <div className="space-y-3 text-[12px] leading-relaxed text-[#c8d0e0]">
               <p>
                 Liquidity is not free-floating day to day in the same way as a
                 simple spot balance. You <strong>lock</strong> an amount for a
@@ -83,11 +83,11 @@ export default function HowItWorksPage() {
             </div>
           </section>
 
-          <section className="rounded border border-[#1e2430] bg-[#12151c] p-4">
-            <h2 className="mb-3 text-[10px] uppercase tracking-wider text-[#00e5ff]">
+          <section className="rounded border border-[#1e2430] bg-[#12151c] p-5">
+            <h2 className="mb-3 text-[11px] uppercase tracking-wider text-[#00e5ff]">
               Platform fee (50% of profits)
             </h2>
-            <p className="text-[11px] leading-relaxed text-[#c8d0e0]">
+            <p className="text-[12px] leading-relaxed text-[#c8d0e0]">
               <strong className="text-[#ffc107]">
                 We retain 50% of net trading profits
               </strong>{" "}
@@ -103,11 +103,11 @@ export default function HowItWorksPage() {
             </p>
           </section>
 
-          <section className="rounded border border-[#ffc107]/25 bg-[#12151c] p-4">
-            <h2 className="mb-3 text-[10px] uppercase tracking-wider text-[#ffc107]">
+          <section className="rounded border border-[#ffc107]/25 bg-[#12151c] p-5">
+            <h2 className="mb-3 text-[11px] uppercase tracking-wider text-[#ffc107]">
               Principal guarantee vs. shorter locks
             </h2>
-            <div className="space-y-3 text-[11px] leading-relaxed text-[#c8d0e0]">
+            <div className="space-y-3 text-[12px] leading-relaxed text-[#c8d0e0]">
               <p>
                 <strong className="text-[#00c853]">
                   Locks of 90 days or longer
@@ -130,7 +130,7 @@ export default function HowItWorksPage() {
                 participate fully in the upside and downside of the session
                 mechanics for that period.
               </p>
-              <p className="text-[10px] text-[#5c6578]">
+              <p className="text-[11px] text-[#5c6578]">
                 Always read the latest terms before locking. Nothing on this page
                 is investment advice.
               </p>
@@ -138,7 +138,7 @@ export default function HowItWorksPage() {
           </section>
         </div>
 
-        <p className="mt-10 text-[10px] text-[#5c6578]">
+        <p className="mt-10 text-[11px] text-[#5c6578]">
           <Link href="/" className="text-[#00e5ff] hover:underline">
             ← Chart
           </Link>

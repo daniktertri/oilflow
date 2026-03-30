@@ -21,7 +21,7 @@ body {
   background: var(--color-terminal-bg);
   color: #c8d0e0;
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 14px;
   letter-spacing: 0.02em;
 }
 
@@ -32,8 +32,8 @@ body {
 }
 
 *::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 
 *::-webkit-scrollbar-track {

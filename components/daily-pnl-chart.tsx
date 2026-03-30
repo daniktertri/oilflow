@@ -21,7 +21,7 @@ type Props = {
 /** SVG daily P&L bars — positive green, negative red. */
 export function DailyPnlChart({ rows, todayOpenSessionPnlUsd = 0 }: Props) {
   const wrapRef = useRef<HTMLDivElement>(null);
-  const [size, setSize] = useState({ w: 800, h: 280 });
+  const [size, setSize] = useState({ w: 800, h: 320 });
   const rawId = useId();
   const gradPos = `pnl-pos-${rawId.replace(/:/g, "")}`;
   const gradNeg = `pnl-neg-${rawId.replace(/:/g, "")}`;
@@ -32,7 +32,7 @@ export function DailyPnlChart({ rows, todayOpenSessionPnlUsd = 0 }: Props) {
     const measure = () => {
       const r = el.getBoundingClientRect();
       const w = Math.max(320, Math.floor(r.width));
-      const h = Math.max(220, Math.min(400, Math.floor(r.height) || 280));
+      const h = Math.max(260, Math.min(440, Math.floor(r.height) || 320));
       setSize((prev) => (prev.w === w && prev.h === h ? prev : { w, h }));
     };
     measure();
@@ -107,7 +107,7 @@ export function DailyPnlChart({ rows, todayOpenSessionPnlUsd = 0 }: Props) {
     return (
       <div
         ref={wrapRef}
-        className="flex min-h-[220px] items-center justify-center font-mono text-[11px] text-[#5c6578]"
+        className="flex min-h-[260px] items-center justify-center font-mono text-[12px] text-[#5c6578]"
       >
         No daily P&L yet — completed lock sessions will appear here.
       </div>
@@ -115,7 +115,7 @@ export function DailyPnlChart({ rows, todayOpenSessionPnlUsd = 0 }: Props) {
   }
 
   return (
-    <div ref={wrapRef} className="min-h-[220px] w-full">
+    <div ref={wrapRef} className="min-h-[260px] w-full">
       <svg
         width={size.w}
         height={size.h}
@@ -147,7 +147,7 @@ export function DailyPnlChart({ rows, todayOpenSessionPnlUsd = 0 }: Props) {
               x={layout.margin.left - 6}
               y={t.y + 4}
               textAnchor="end"
-              className="fill-[#5c6578] font-mono text-[9px]"
+              className="fill-[#5c6578] font-mono text-[10px]"
             >
               {t.label}
             </text>
@@ -180,7 +180,7 @@ export function DailyPnlChart({ rows, todayOpenSessionPnlUsd = 0 }: Props) {
               x={b.x + b.w / 2}
               y={size.h - 10}
               textAnchor="middle"
-              className="fill-[#5c6578] font-mono text-[8px]"
+              className="fill-[#5c6578] font-mono text-[9px]"
             >
               {b.label}
             </text>
@@ -188,7 +188,7 @@ export function DailyPnlChart({ rows, todayOpenSessionPnlUsd = 0 }: Props) {
         )}
       </svg>
       {todayOpenSessionPnlUsd !== 0 ? (
-        <p className="mt-1 text-[9px] text-[#5c6578]">
+        <p className="mt-1 text-[10px] text-[#5c6578]">
           Today&apos;s bar includes open session P&L (unrealized until the lock
           settles).
         </p>
