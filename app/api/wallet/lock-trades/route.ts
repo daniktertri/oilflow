@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
-import { listLockSyntheticTrades } from "@/lib/db/wallet";
+import { listLockHourlyAccruals } from "@/lib/db/wallet";
 import { getSessionUserId } from "@/lib/wallet-session";
 
 export async function GET(req: Request) {
@@ -26,16 +26,13 @@ export async function GET(req: Request) {
     Math.max(1, Number(searchParams.get("limit")) || 200)
   );
 
-  const rows = await listLockSyntheticTrades(sql, userId, limit);
+  const rows = await listLockHourlyAccruals(sql, userId, limit);
   return NextResponse.json({
     trades: rows.map((t) => ({
       id: t.id,
-      liquiditySource: t.liquidity_source,
+      lockId: t.lock_id,
       hourBucket: t.hour_bucket,
       pnlUsd: Number(t.pnl_usd),
-      notionalUsd: Number(t.notional_usd),
-      side: t.side,
-      feeUsd: Number(t.fee_usd),
       createdAt: t.created_at,
     })),
   });

@@ -143,8 +143,8 @@ const STEPS: TourStep[] = [
     body: (
       <>
         Choose <strong>amount</strong> and <strong>duration</strong>, then{" "}
-        <strong>Lock &amp; run</strong>. While active, one simulated fill per
-        minute updates session P&amp;L.
+        <strong>Add lock</strong>. While active, positions post realized P&amp;L
+        each hour.
       </>
     ),
   },
@@ -153,8 +153,8 @@ const STEPS: TourStep[] = [
     targetAttr: "tour-lock-trades",
     body: (
       <>
-        Per-minute <strong>fills</strong> during an active lock—side, price,
-        notional, fee, and P&amp;L for that minute.
+        Each row is a <strong>realized trade</strong> for that hour while a lock
+        is active—the full profit for that hour.
       </>
     ),
   },

@@ -33,18 +33,9 @@ function utcTodayKey(): string {
 
 type LockTradeRow = {
   id: string;
-  liquiditySource: string;
   createdAt: string;
   pnlUsd: number;
-  notionalUsd: number;
-  side: string;
 };
-
-function liquidityLabel(src: string): string {
-  if (src === "user_liquidity") return "Your liquidity";
-  if (src === "platform_liquidity") return "Platform liquidity";
-  return src;
-}
 
 export default function DashboardPage() {
   const {
@@ -72,9 +63,7 @@ export default function DashboardPage() {
         );
       }
       if (tr.ok) {
-        const data = (await tr.json()) as {
-          trades?: LockTradeRow[];
-        };
+        const data = (await tr.json()) as { trades?: LockTradeRow[] };
         setTrades(data.trades ?? []);
       }
       if (!dr.ok || !tr.ok) {
@@ -113,8 +102,6 @@ export default function DashboardPage() {
           Dashboard
         </h1>
         <p className="mb-6 text-[11px] text-[#5c6578]">
-          Hourly yield credits to your available balance (withdrawable). Lock
-          yield, synthetic trades, and daily P&amp;L (UTC).{" "}
           <Link href="/lock" className="text-[#00e5ff] hover:underline">
             Lock liquidity
           </Link>{" "}
@@ -151,7 +138,7 @@ export default function DashboardPage() {
             {
               label: "Accumulated yield",
               value: hasLocks ? formatUsd(totalYieldAcrossLocks) : "—",
-              sub: hasLocks ? "Sum across your locks (server)" : "Start a lock to earn",
+              sub: hasLocks ? "Sum across your active locks" : "Start a lock to earn",
               color:
                 !hasLocks || totalYieldAcrossLocks >= 0
                   ? "text-[#00c853]"
@@ -187,7 +174,7 @@ export default function DashboardPage() {
               {hydrated ? formatUsd(todayRealized) : "—"}
             </div>
             <p className="mt-2 text-[11px] leading-relaxed text-[#5c6578]">
-              Hourly lock yield credited today (UTC day).
+              Realized P&amp;L credited today (UTC day).
             </p>
           </div>
           <div className="rounded border border-[#1e2430] bg-[#12151c] p-5">
@@ -202,7 +189,7 @@ export default function DashboardPage() {
               {hydrated ? formatUsd(totalRealized) : "—"}
             </div>
             <p className="mt-2 text-[11px] leading-relaxed text-[#5c6578]">
-              Sum of daily P&amp;L from your account (server).
+              Cumulative realized P&amp;L on your account.
             </p>
           </div>
         </div>
@@ -217,54 +204,49 @@ export default function DashboardPage() {
                 Daily P&amp;L (USD, UTC)
               </h2>
               <p className="text-[11px] text-[#5c6578]">
-                Last ~45 days · hourly lock yield
+                Last ~45 days · lock positions
               </p>
             </div>
           </div>
           <DailyPnlChart rows={dailyRows} todayOpenSessionPnlUsd={0} />
         </section>
 
-        <section className="rounded border border-[#1e2430] bg-[#12151c]">
+        <section
+          data-tour="tour-lock-trades"
+          className="rounded border border-[#1e2430] bg-[#12151c]"
+        >
           <div className="border-b border-[#1e2430] px-4 py-2.5">
             <h2 className="text-[11px] uppercase tracking-wider text-[#5c6578]">
               Executed trades (lock)
             </h2>
             <p className="text-[11px] text-[#5c6578]">
-              Two synthetic trades per hourly accrual (your liquidity + platform).
+              Realized trades while a lock is open (one row per hour per position).
             </p>
           </div>
           <div className="max-h-[420px] overflow-y-auto">
-            <div className="grid grid-cols-[1fr_1fr_1fr_1fr] gap-x-3 border-b border-[#1e2430] px-4 py-2 font-mono text-[11px] text-[#5c6578]">
+            <div className="grid grid-cols-[1fr_auto] gap-x-6 border-b border-[#1e2430] px-4 py-2 font-mono text-[11px] text-[#5c6578]">
               <span>TIME (UTC)</span>
-              <span>SOURCE</span>
-              <span>SIDE</span>
-              <span className="text-right">P&amp;L</span>
+              <span className="text-right">PROFIT</span>
             </div>
             {trades.length === 0 && (
               <p className="px-4 py-6 text-center text-[11px] text-[#5c6578]">
-                No trades yet. Yield accrues hourly while a lock is active.
+                No trades yet. They appear here while a lock is active.
               </p>
             )}
             {trades.map((t) => (
               <div
                 key={t.id}
-                className="grid grid-cols-[1fr_1fr_1fr_1fr] gap-x-3 border-b border-[#1a1f28] px-4 py-2 font-mono text-[11px]"
+                className="grid grid-cols-[1fr_auto] gap-x-6 border-b border-[#1a1f28] px-4 py-2 font-mono text-[11px]"
               >
                 <span className="text-[#5c6578]">
                   {new Date(t.createdAt).toISOString().slice(0, 19).replace("T", " ")}
                 </span>
-                <span className="text-[#c8d0e0]">
-                  {liquidityLabel(t.liquiditySource)}
-                </span>
                 <span
                   className={
-                    t.side === "long" ? "text-[#00c853]" : "text-[#ff5252]"
+                    t.pnlUsd >= 0
+                      ? "text-right font-medium text-[#00c853]"
+                      : "text-right font-medium text-[#ff5252]"
                   }
-                >
-                  {t.side.toUpperCase()}
-                </span>
-                <span
-                  className={`text-right text-[#5c6578] ${t.pnlUsd >= 0 ? "text-[#00c853]" : "text-[#ff5252]"}`}
                 >
                   {formatUsd(t.pnlUsd)}
                 </span>

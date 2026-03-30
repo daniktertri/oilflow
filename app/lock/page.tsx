@@ -7,6 +7,10 @@ import { useWallet } from "@/components/wallet-provider";
 
 const DAY_MS = 24 * 60 * 60_000;
 
+/** Past performance band for illustrative estimates only (not guaranteed). */
+const EST_MONTHLY_PCT_LOW = 0.3;
+const EST_MONTHLY_PCT_HIGH = 0.35;
+
 const LOCK_PRESETS = [
   {
     days: 30,
@@ -14,7 +18,7 @@ const LOCK_PRESETS = [
     title: "30 days",
     guaranteed: false,
     line:
-      "Standard lock. Hourly yield accrues on the server; principal returns at expiry.",
+      "Standard lock. P&L runs while the position is open; principal unlocks at expiry.",
   },
   {
     days: 60,
@@ -22,7 +26,7 @@ const LOCK_PRESETS = [
     title: "60 days",
     guaranteed: false,
     line:
-      "Longer runway with the same hourly yield schedule. Same unlock at the end.",
+      "Longer runway, same mechanics. Principal unlocks when the term ends.",
   },
   {
     days: 90,
@@ -115,6 +119,27 @@ export default function LockLiquidityPage() {
     [activeLocks]
   );
 
+  const lockAmountNum = useMemo(() => {
+    const n = Number(lockAmount);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  }, [lockAmount]);
+
+  const illustrativeProfitRange = useMemo(() => {
+    if (lockAmountNum == null) return null;
+    const preset = LOCK_PRESETS.find((p) => p.ms === lockPresetMs);
+    if (!preset) return null;
+    const months = preset.days / 30;
+    const low = lockAmountNum * EST_MONTHLY_PCT_LOW * months;
+    const high = lockAmountNum * EST_MONTHLY_PCT_HIGH * months;
+    return {
+      low,
+      high,
+      days: preset.days,
+      title: preset.title,
+      principalUsd: lockAmountNum,
+    };
+  }, [lockAmountNum, lockPresetMs]);
+
   const onStartLock = async () => {
     setLockUiError(null);
     const amt = Number(lockAmount);
@@ -134,9 +159,9 @@ export default function LockLiquidityPage() {
         </h1>
         <p className="mb-6 text-[11px] text-[#5c6578]">
           You can run <strong className="text-[#c8d0e0]">multiple locks</strong> at
-          once (same or different terms). Hourly yield is credited straight to
-          your <strong className="text-[#00c853]">available balance</strong> and
-          can be withdrawn anytime; only the{" "}
+          once (same or different terms). Profits from your positions go to your{" "}
+          <strong className="text-[#00c853]">available balance</strong> and can be
+          withdrawn anytime; only the{" "}
           <strong className="text-[#00e5ff]">principal</strong> stays locked until
           each position expires. Need funds?{" "}
           <Link href="/balance" className="text-[#00e5ff] hover:underline">
@@ -226,14 +251,31 @@ export default function LockLiquidityPage() {
                 <p className="mb-2 text-[11px] text-[#ff5252]">{lockUiError}</p>
               )}
               <p className="text-[11px] leading-relaxed text-[#5c6578]">
-                Hourly yield (about 0.039%–0.05% of that position&apos;s principal
-                per hour) lands in available USDC as it accrues. Synthetic trades
-                and charts:{" "}
+                Past performance for comparable programs has averaged roughly{" "}
+                <strong className="text-[#c8d0e0]">30–35% per month</strong>—for
+                illustration only;{" "}
+                <strong className="text-[#c8d0e0]">not guaranteed</strong>. Enter an
+                amount and pick a term to see a rough profit band for that lock
+                length; actual results vary. Track activity on the{" "}
                 <Link href="/dashboard" className="text-[#00e5ff] hover:underline">
                   Dashboard
                 </Link>
                 .
               </p>
+              {illustrativeProfitRange ? (
+                <p className="mt-2 text-[11px] leading-relaxed text-[#5c6578]">
+                  <span className="font-mono text-[#00c853]">
+                    {formatUsd(illustrativeProfitRange.low)} –{" "}
+                    {formatUsd(illustrativeProfitRange.high)}
+                  </span>{" "}
+                  estimated total profit for{" "}
+                  <span className="text-[#c8d0e0]">
+                    {illustrativeProfitRange.title}
+                  </span>{" "}
+                  at {formatUsd(illustrativeProfitRange.principalUsd)} principal
+                  (scaled from 30–35% / month to this term; not guaranteed).
+                </p>
+              ) : null}
             </div>
           </section>
 
@@ -288,7 +330,7 @@ export default function LockLiquidityPage() {
                       <div className="grid grid-cols-2 gap-2">
                         <div className="rounded border border-[#1e2430] bg-[#12151c] px-2 py-2">
                           <div className="mb-0.5 text-[10px] uppercase tracking-wider text-[#5c6578]">
-                            Locked P&amp;L
+                            P&amp;L from this lock
                           </div>
                           <div
                             className={`font-mono text-[15px] ${

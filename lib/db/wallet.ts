@@ -429,37 +429,33 @@ export async function settleAllExpiredLocksForUser(
   };
 }
 
-export type LockSyntheticTradeRow = {
+/** One row per hourly accrual (sum of user + platform synthetic legs). */
+export type LockHourlyAccrualRow = {
   id: string;
-  liquidity_source: string;
+  lock_id: string;
   hour_bucket: string;
   pnl_usd: string;
-  notional_usd: string;
-  side: string;
-  fee_usd: string;
   created_at: string;
 };
 
-export async function listLockSyntheticTrades(
+export async function listLockHourlyAccruals(
   sql: Sql,
   userId: string,
   limit = 200
-): Promise<LockSyntheticTradeRow[]> {
+): Promise<LockHourlyAccrualRow[]> {
   return (await sql`
     SELECT
-      id::text AS id,
-      liquidity_source,
+      (lock_id::text || '|' || hour_bucket::text) AS id,
+      lock_id::text AS lock_id,
       hour_bucket::text AS hour_bucket,
-      pnl_usd::text AS pnl_usd,
-      notional_usd::text AS notional_usd,
-      side,
-      fee_usd::text AS fee_usd,
-      created_at::text AS created_at
+      SUM(pnl_usd)::text AS pnl_usd,
+      MAX(created_at)::text AS created_at
     FROM lock_synthetic_trades
     WHERE user_id = ${userId}::uuid
-    ORDER BY created_at DESC
+    GROUP BY lock_id, hour_bucket
+    ORDER BY MAX(created_at) DESC
     LIMIT ${limit}
-  `) as LockSyntheticTradeRow[];
+  `) as LockHourlyAccrualRow[];
 }
 
 export type DailyReturnRow = {
