@@ -12,7 +12,6 @@ import {
 } from "@/lib/hyperliquid";
 import { useWallet } from "@/components/wallet-provider";
 import { sameOriginApi } from "@/lib/client-api-url";
-import { synthesizeGlobalBotTrades } from "@/lib/global-bot-trades";
 import { CandleChart } from "@/components/candle-chart";
 import { PriceChart, type PriceChartRow } from "@/components/price-chart";
 
@@ -209,11 +208,6 @@ export default function OilTradePage() {
   const dayVol = assetCtx?.dayNtlVlm ? Number(assetCtx.dayNtlVlm) : null;
   const oraclePx = assetCtx?.oraclePx ? Number(assetCtx.oraclePx) : null;
 
-  const globalBotTrades = useMemo(
-    () => synthesizeGlobalBotTrades(history, { dayVolUsd: dayVol }),
-    [history, dayVol]
-  );
-
   return (
     <div className="flex min-h-screen flex-col bg-[#0c0e12] text-[#c8d0e0]">
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[#1e2430] bg-[#0a0c10] px-4 py-2.5">
@@ -243,26 +237,12 @@ export default function OilTradePage() {
             </span>
           </Link>
           {activeLock && (
-            <>
-              <span className="text-[#5c6578]">
-                LOCKED{" "}
-                <span className="text-[#00e5ff]">
-                  {formatUsd(activeLock.principalUsd)}
-                </span>
+            <span className="text-[#5c6578]">
+              LOCKED{" "}
+              <span className="text-[#00e5ff]">
+                {formatUsd(activeLock.principalUsd)}
               </span>
-              <span className="text-[#5c6578]">
-                SESSION P&amp;L{" "}
-                <span
-                  className={
-                    activeLock.sessionPnlUsd >= 0
-                      ? "text-[#00c853]"
-                      : "text-[#ff5252]"
-                  }
-                >
-                  {formatUsd(activeLock.sessionPnlUsd)}
-                </span>
-              </span>
-            </>
+            </span>
           )}
           <span className="text-[#5c6578]">UTC {clock}</span>
         </div>
@@ -402,65 +382,6 @@ export default function OilTradePage() {
             )}
           </div>
         </main>
-
-        <section data-tour="tour-bot-feed" className="col-span-12 bg-[#12151c]">
-          <div className="border-t border-b border-[#1e2430] px-4 py-2.5">
-            <div className="text-[12px] uppercase tracking-wider text-[#5c6578]">
-              Global bot activity
-            </div>
-            <div className="text-[12px] text-[#5c6578]">
-              Market-wide executions · {WTIOIL_USDC.displayPair}
-            </div>
-          </div>
-          <div className="max-h-[280px] overflow-y-auto">
-            <div className="grid grid-cols-[1fr_0.8fr_1fr_1fr] gap-x-3 border-b border-[#1e2430] px-4 py-2 font-mono text-[12px] text-[#5c6578] sm:grid-cols-[1fr_0.7fr_1fr_1fr]">
-              <span>TIME (UTC)</span>
-              <span>SIDE</span>
-              <span className="text-right">PRICE</span>
-              <span className="text-right">NOTIONAL</span>
-            </div>
-            {error && (
-              <p className="px-4 py-5 text-center text-[12px] text-[#5c6578]">
-                Feed updates with the chart when data is available.
-              </p>
-            )}
-            {!error && loading && history.length === 0 && (
-              <p className="px-4 py-5 text-center text-[12px] text-[#5c6578]">
-                Loading…
-              </p>
-            )}
-            {!error &&
-              !loading &&
-              globalBotTrades.length === 0 &&
-              history.length > 0 && (
-                <p className="px-4 py-5 text-center text-[12px] text-[#5c6578]">
-                  No activity for this range yet.
-                </p>
-              )}
-            {!error &&
-              globalBotTrades.map((t) => (
-                <div
-                  key={t.id}
-                  className="grid grid-cols-[1fr_0.8fr_1fr_1fr] gap-x-3 border-b border-[#1a1f28] px-4 py-2 font-mono text-[12px] sm:grid-cols-[1fr_0.7fr_1fr_1fr]"
-                >
-                  <span className="text-[#5c6578]">
-                    {new Date(t.time).toISOString().slice(11, 19)}
-                  </span>
-                  <span
-                    className={
-                      t.side === "long" ? "text-[#00c853]" : "text-[#ff5252]"
-                    }
-                  >
-                    {t.side.toUpperCase()}
-                  </span>
-                  <span className="text-right">{formatUsd(t.price)}</span>
-                  <span className="text-right text-[#c8d0e0]">
-                    {formatUsd(t.notionalUsd)}
-                  </span>
-                </div>
-              ))}
-          </div>
-        </section>
 
         <section className="col-span-12 border-t border-[#1e2430] bg-[#12151c] px-4 py-2.5 text-[12px] text-[#5c6578]">
           {WTIOIL_USDC.displayPair} uses API coin{" "}

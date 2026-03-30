@@ -28,7 +28,8 @@ export type WalletLedgerKind =
   | "withdraw"
   | "withdraw_refund"
   | "lock_in"
-  | "lock_settle";
+  | "lock_settle"
+  | "lock_yield";
 
 export type WalletLedgerEntry = {
   id: string;
@@ -60,24 +61,17 @@ export function saveBalance(n: number): void {
   }
 }
 
+/** Locks are server-only; clear legacy client keys. */
 export function loadLock(): ActiveLiquidityLock | null {
   if (typeof window === "undefined") return null;
   try {
     migrateStringKey(LOCK_KEY, LEGACY_LOCK);
-    const raw = localStorage.getItem(LOCK_KEY);
-    if (!raw) return null;
-    const p = JSON.parse(raw) as ActiveLiquidityLock;
-    if (
-      typeof p.principalUsd !== "number" ||
-      typeof p.endsAt !== "number" ||
-      typeof p.prevMark !== "number"
-    ) {
-      return null;
-    }
-    return p;
+    localStorage.removeItem(LOCK_KEY);
+    localStorage.removeItem(LEGACY_LOCK);
   } catch {
-    return null;
+    /* ignore */
   }
+  return null;
 }
 
 export function saveLock(lock: ActiveLiquidityLock | null): void {

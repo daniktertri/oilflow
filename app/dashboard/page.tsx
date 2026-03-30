@@ -1,14 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { DailyPnlChart } from "@/components/daily-pnl-chart";
 import { useWallet } from "@/components/wallet-provider";
-import {
-  loadDailyPnl,
-  sumRealizedPnl,
-  type DailyPnlRow,
-} from "@/lib/pnl-history";
+import { sumRealizedPnl, type DailyPnlRow } from "@/lib/pnl-history";
 
 function formatUsd(n: number) {
   return new Intl.NumberFormat("en-US", {
@@ -29,24 +25,76 @@ function formatDuration(ms: number) {
   return `${m}:${String(sec).padStart(2, "0")}`;
 }
 
-function todayKey(): string {
+/** Match server `daily_returns.day` (UTC). */
+function utcTodayKey(): string {
   const t = new Date();
-  return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, "0")}-${String(t.getDate()).padStart(2, "0")}`;
+  return `${t.getUTCFullYear()}-${String(t.getUTCMonth() + 1).padStart(2, "0")}-${String(t.getUTCDate()).padStart(2, "0")}`;
+}
+
+type LockTradeRow = {
+  id: string;
+  liquiditySource: string;
+  createdAt: string;
+  pnlUsd: number;
+  notionalUsd: number;
+  side: string;
+};
+
+function liquidityLabel(src: string): string {
+  if (src === "user_liquidity") return "Your liquidity";
+  if (src === "platform_liquidity") return "Platform liquidity";
+  return src;
 }
 
 export default function DashboardPage() {
   const { balance, hydrated, activeLock, remainingMs } = useWallet();
   const [dailyRows, setDailyRows] = useState<DailyPnlRow[]>([]);
+  const [trades, setTrades] = useState<LockTradeRow[]>([]);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+
+  const loadDashboard = useCallback(async () => {
+    setFetchError(null);
+    try {
+      const [dr, tr] = await Promise.all([
+        fetch("/api/wallet/daily-returns", { cache: "no-store" }),
+        fetch("/api/wallet/lock-trades?limit=100", { cache: "no-store" }),
+      ]);
+      if (dr.ok) {
+        const data = (await dr.json()) as { rows?: { date: string; pnlUsd: number }[] };
+        setDailyRows(
+          (data.rows ?? []).map((r) => ({ date: r.date, pnlUsd: r.pnlUsd }))
+        );
+      }
+      if (tr.ok) {
+        const data = (await tr.json()) as {
+          trades?: LockTradeRow[];
+        };
+        setTrades(data.trades ?? []);
+      }
+      if (!dr.ok || !tr.ok) {
+        setFetchError("Could not load performance data.");
+      }
+    } catch {
+      setFetchError("Could not load performance data.");
+    }
+  }, []);
 
   useEffect(() => {
-    setDailyRows(loadDailyPnl());
-  }, [hydrated, activeLock]);
+    void loadDashboard();
+  }, [loadDashboard, hydrated, activeLock]);
 
-  const tk = todayKey();
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      void loadDashboard();
+    }, 60_000);
+    return () => window.clearInterval(id);
+  }, [loadDashboard]);
+
+  const tk = utcTodayKey();
   const todayRealized = dailyRows.find((r) => r.date === tk)?.pnlUsd ?? 0;
   const totalRealized = useMemo(() => sumRealizedPnl(dailyRows), [dailyRows]);
 
-  const openSessionPnl = activeLock?.sessionPnlUsd ?? 0;
+  const openYield = activeLock?.accumulatedYieldUsd ?? 0;
   const lockedPrincipal = activeLock?.principalUsd ?? 0;
 
   return (
@@ -56,7 +104,7 @@ export default function DashboardPage() {
           Dashboard
         </h1>
         <p className="mb-6 text-[11px] text-[#5c6578]">
-          Locked funds, session P&L, and realized P&L by day (from completed locks).{" "}
+          Lock yield, hourly synthetic trades, and daily P&amp;L (UTC).{" "}
           <Link href="/lock" className="text-[#00e5ff] hover:underline">
             Lock liquidity
           </Link>{" "}
@@ -66,6 +114,10 @@ export default function DashboardPage() {
           </Link>
           .
         </p>
+
+        {fetchError && (
+          <p className="mb-4 text-[11px] text-[#ff5252]">{fetchError}</p>
+        )}
 
         <div
           data-tour="tour-dashboard-overview"
@@ -85,11 +137,11 @@ export default function DashboardPage() {
               color: "text-[#00e5ff]",
             },
             {
-              label: "Session P&L",
-              value: activeLock ? formatUsd(openSessionPnl) : "—",
-              sub: activeLock ? "Open position" : "Start a lock to trade",
+              label: "Accumulated yield",
+              value: activeLock ? formatUsd(openYield) : "—",
+              sub: activeLock ? "This lock (server)" : "Start a lock to earn",
               color:
-                !activeLock || openSessionPnl >= 0
+                !activeLock || openYield >= 0
                   ? "text-[#00c853]"
                   : "text-[#ff5252]",
             },
@@ -113,7 +165,7 @@ export default function DashboardPage() {
         <div className="mb-6 grid gap-4 sm:grid-cols-2">
           <div className="rounded border border-[#1e2430] bg-[#12151c] p-5">
             <div className="mb-1 text-[11px] uppercase tracking-wider text-[#5c6578]">
-              Today (realized)
+              Today (UTC, realized)
             </div>
             <div
               className={`font-mono text-2xl ${
@@ -123,8 +175,7 @@ export default function DashboardPage() {
               {hydrated ? formatUsd(todayRealized) : "—"}
             </div>
             <p className="mt-2 text-[11px] leading-relaxed text-[#5c6578]">
-              Settled lock P&L credited today. Open session P&L is merged into the
-              chart below.
+              Hourly lock yield credited today (UTC day).
             </p>
           </div>
           <div className="rounded border border-[#1e2430] bg-[#12151c] p-5">
@@ -139,30 +190,75 @@ export default function DashboardPage() {
               {hydrated ? formatUsd(totalRealized) : "—"}
             </div>
             <p className="mt-2 text-[11px] leading-relaxed text-[#5c6578]">
-              Sum of daily realized P&L from completed liquidity locks in this
-              browser.
+              Sum of daily P&amp;L from your account (server).
             </p>
           </div>
         </div>
 
         <section
           data-tour="tour-dashboard-pnl"
-          className="rounded border border-[#1e2430] bg-[#12151c] p-5"
+          className="mb-6 rounded border border-[#1e2430] bg-[#12151c] p-5"
         >
           <div className="mb-2 flex flex-wrap items-end justify-between gap-2">
             <div>
               <h2 className="text-[11px] uppercase tracking-wider text-[#5c6578]">
-                Daily P&L (realized)
+                Daily P&amp;L (USD, UTC)
               </h2>
               <p className="text-[11px] text-[#5c6578]">
-                Last ~45 days · USDC · local calendar day
+                Last ~45 days · hourly lock yield
               </p>
             </div>
           </div>
-          <DailyPnlChart
-            rows={dailyRows}
-            todayOpenSessionPnlUsd={activeLock ? openSessionPnl : 0}
-          />
+          <DailyPnlChart rows={dailyRows} todayOpenSessionPnlUsd={0} />
+        </section>
+
+        <section className="rounded border border-[#1e2430] bg-[#12151c]">
+          <div className="border-b border-[#1e2430] px-4 py-2.5">
+            <h2 className="text-[11px] uppercase tracking-wider text-[#5c6578]">
+              Executed trades (lock)
+            </h2>
+            <p className="text-[11px] text-[#5c6578]">
+              Two synthetic trades per hourly accrual (your liquidity + platform).
+            </p>
+          </div>
+          <div className="max-h-[420px] overflow-y-auto">
+            <div className="grid grid-cols-[1fr_1fr_1fr_1fr] gap-x-3 border-b border-[#1e2430] px-4 py-2 font-mono text-[11px] text-[#5c6578]">
+              <span>TIME (UTC)</span>
+              <span>SOURCE</span>
+              <span>SIDE</span>
+              <span className="text-right">P&amp;L</span>
+            </div>
+            {trades.length === 0 && (
+              <p className="px-4 py-6 text-center text-[11px] text-[#5c6578]">
+                No trades yet. Yield accrues hourly while a lock is active.
+              </p>
+            )}
+            {trades.map((t) => (
+              <div
+                key={t.id}
+                className="grid grid-cols-[1fr_1fr_1fr_1fr] gap-x-3 border-b border-[#1a1f28] px-4 py-2 font-mono text-[11px]"
+              >
+                <span className="text-[#5c6578]">
+                  {new Date(t.createdAt).toISOString().slice(0, 19).replace("T", " ")}
+                </span>
+                <span className="text-[#c8d0e0]">
+                  {liquidityLabel(t.liquiditySource)}
+                </span>
+                <span
+                  className={
+                    t.side === "long" ? "text-[#00c853]" : "text-[#ff5252]"
+                  }
+                >
+                  {t.side.toUpperCase()}
+                </span>
+                <span
+                  className={`text-right text-[#5c6578] ${t.pnlUsd >= 0 ? "text-[#00c853]" : "text-[#ff5252]"}`}
+                >
+                  {formatUsd(t.pnlUsd)}
+                </span>
+              </div>
+            ))}
+          </div>
         </section>
       </div>
     </div>

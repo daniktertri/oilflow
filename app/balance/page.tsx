@@ -37,6 +37,8 @@ function kindLabel(k: WalletLedgerEntry["kind"]): string {
       return "Lock in";
     case "lock_settle":
       return "Lock settle";
+    case "lock_yield":
+      return "Lock yield";
     default:
       return k;
   }

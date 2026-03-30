@@ -10,14 +10,13 @@ export type ExecutedTrade = {
   pnlUsd: number;
 };
 
+/** Client-side mirror of server `liquidity_locks` + hourly yield. */
 export type ActiveLiquidityLock = {
+  lockId: string;
   principalUsd: number;
   startedAt: number;
   endsAt: number;
-  sessionPnlUsd: number;
-  trades: ExecutedTrade[];
-  /** Mark used as prior reference for the next minute */
-  prevMark: number;
+  accumulatedYieldUsd: number;
 };
 
 const FEE_BPS = 3.5;

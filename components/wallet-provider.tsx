@@ -9,15 +9,7 @@ import {
   useRef,
   useState,
 } from "react";
-import {
-  buildTradeRow,
-  nextNotionalUsd,
-  nextSide,
-  pnlForMinute,
-  type ActiveLiquidityLock,
-} from "@/lib/session-trading";
-import { fetchMarkFrom1m } from "@/lib/mark-price";
-import { addSessionPnlToDay } from "@/lib/pnl-history";
+import type { ActiveLiquidityLock } from "@/lib/session-trading";
 import { loadLock, saveLock, type WalletLedgerEntry } from "@/lib/wallet-storage";
 import { useTelegramAuth } from "@/components/telegram-auth-provider";
 
@@ -60,6 +52,24 @@ function mapServerLedger(
   }));
 }
 
+type ApiActiveLock = {
+  id: string;
+  principalUsd: number;
+  accumulatedYieldUsd: number;
+  startedAt: string;
+  endsAt: string;
+};
+
+function mapActiveLock(api: ApiActiveLock): ActiveLiquidityLock {
+  return {
+    lockId: api.id,
+    principalUsd: api.principalUsd,
+    startedAt: new Date(api.startedAt).getTime(),
+    endsAt: new Date(api.endsAt).getTime(),
+    accumulatedYieldUsd: api.accumulatedYieldUsd,
+  };
+}
+
 export function WalletProvider({ children }: { children: React.ReactNode }) {
   const { user } = useTelegramAuth();
   const [balance, setBalance] = useState(0);
@@ -80,6 +90,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       setBalance(0);
       setRecentLedger([]);
       setDepositPubkey(null);
+      setActiveLock(null);
       return;
     }
     try {
@@ -87,6 +98,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       if (!res.ok) return;
       const data = (await res.json()) as {
         usdcAvailable: number;
+        activeLock: ApiActiveLock | null;
         ledger: {
           id: string;
           kind: string;
@@ -99,6 +111,11 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       setBalance(data.usdcAvailable);
       setRecentLedger(mapServerLedger(data.ledger));
       setDepositPubkey(data.depositPubkey);
+      if (data.activeLock) {
+        setActiveLock(mapActiveLock(data.activeLock));
+      } else {
+        setActiveLock(null);
+      }
     } catch {
       /* ignore */
     }
@@ -110,11 +127,9 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         setHydrated(true);
         return;
       }
+      saveLock(null);
+      loadLock();
       await refreshWallet();
-      const l = loadLock();
-      if (l && Date.now() < l.endsAt) {
-        setActiveLock(l);
-      }
       setHydrated(true);
     })();
   }, [user?.id, refreshWallet]);
@@ -124,65 +139,41 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     const id = window.setInterval(() => {
       void refreshWallet();
     }, 30_000);
-    return () => clearInterval(id);
+    return () => window.clearInterval(id);
   }, [user?.id, refreshWallet]);
 
   useEffect(() => {
-    if (!hydrated) return;
-    if (activeLock) saveLock(activeLock);
-    else saveLock(null);
-  }, [activeLock, hydrated]);
-
-  useEffect(() => {
     const id = window.setInterval(() => setTickNow(Date.now()), 1000);
-    return () => clearInterval(id);
+    return () => window.clearInterval(id);
   }, []);
 
-  const settleLockOnServer = useCallback(
-    async (L: ActiveLiquidityLock) => {
-      if (!user?.id) return;
-      addSessionPnlToDay(Math.min(Date.now(), L.endsAt), L.sessionPnlUsd);
-      try {
-        const res = await fetch("/api/wallet/lock-settle", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            principalUsd: L.principalUsd,
-            sessionPnlUsd: L.sessionPnlUsd,
-          }),
-        });
-        const data = (await res.json()) as {
-          ok?: boolean;
-          balanceAfter?: number;
-          error?: string;
-        };
-        if (!res.ok) {
-          console.error("[wallet] lock-settle", data.error);
-          settledEndsAtRef.current = null;
-          return;
-        }
-        if (typeof data.balanceAfter === "number") {
-          setBalance(data.balanceAfter);
-        }
-        await refreshWallet();
-        setActiveLock(null);
-        saveLock(null);
-      } catch (e) {
-        console.error("[wallet] lock-settle", e);
+  const settleLockOnServer = useCallback(async () => {
+    if (!user?.id) return;
+    try {
+      const res = await fetch("/api/wallet/lock-settle", {
+        method: "POST",
+      });
+      const data = (await res.json()) as {
+        ok?: boolean;
+        balanceAfter?: number;
+        error?: string;
+      };
+      if (!res.ok) {
+        console.error("[wallet] lock-settle", data.error);
         settledEndsAtRef.current = null;
+        return;
       }
-    },
-    [user?.id, refreshWallet]
-  );
-
-  useEffect(() => {
-    if (!user?.id || !hydrated) return;
-    const l = loadLock();
-    if (!l || Date.now() < l.endsAt) return;
-    if (settledEndsAtRef.current === l.endsAt) return;
-    settledEndsAtRef.current = l.endsAt;
-    void settleLockOnServer(l);
-  }, [user?.id, hydrated, settleLockOnServer]);
+      if (typeof data.balanceAfter === "number") {
+        setBalance(data.balanceAfter);
+      }
+      await refreshWallet();
+      setActiveLock(null);
+      saveLock(null);
+    } catch (e) {
+      console.error("[wallet] lock-settle", e);
+      settledEndsAtRef.current = null;
+    }
+  }, [user?.id, refreshWallet]);
 
   useEffect(() => {
     if (!user?.id || !hydrated) return;
@@ -194,50 +185,8 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     if (tickNow < L.endsAt) return;
     if (settledEndsAtRef.current === L.endsAt) return;
     settledEndsAtRef.current = L.endsAt;
-    void settleLockOnServer(L);
+    void settleLockOnServer();
   }, [tickNow, activeLock, user?.id, hydrated, settleLockOnServer]);
-
-  const runMinuteTick = useCallback(async () => {
-    const L = lockRef.current;
-    if (!L) return;
-    const now = Date.now();
-    if (now >= L.endsAt) return;
-    let mark: number;
-    try {
-      mark = await fetchMarkFrom1m();
-    } catch {
-      return;
-    }
-    const seq = L.trades.length + 1;
-    const salt = L.startedAt / 1000 + seq * 17;
-    const notional = nextNotionalUsd(L.principalUsd, salt);
-    const side = nextSide(salt + 3.1);
-    const { feeUsd, net } = pnlForMinute({
-      side,
-      prevMark: L.prevMark,
-      mark,
-      notionalUsd: notional,
-    });
-    const trade = buildTradeRow(seq, mark, side, notional, feeUsd, net);
-    setActiveLock((prev) => {
-      if (!prev || Date.now() >= prev.endsAt) return prev;
-      return {
-        ...prev,
-        prevMark: mark,
-        sessionPnlUsd: prev.sessionPnlUsd + net,
-        trades: [trade, ...prev.trades].slice(0, 250),
-      };
-    });
-  }, []);
-
-  useEffect(() => {
-    if (!activeLock || Date.now() >= activeLock.endsAt) return;
-    const id = window.setInterval(() => {
-      void runMinuteTick();
-    }, 60_000);
-    return () => clearInterval(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- timer tied to lock session identity
-  }, [activeLock?.endsAt, activeLock?.startedAt, runMinuteTick]);
 
   const withdrawUsd = useCallback(
     async (
@@ -297,11 +246,12 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         const lockRes = await fetch("/api/wallet/lock-in", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ amountUsd }),
+          body: JSON.stringify({ amountUsd, durationMs }),
         });
         const lockData = (await lockRes.json()) as {
           error?: string;
           balanceAfter?: number;
+          lock?: ApiActiveLock;
         };
         if (!lockRes.ok) {
           return { ok: false, error: lockData.error ?? "Could not lock funds." };
@@ -309,17 +259,11 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         if (typeof lockData.balanceAfter === "number") {
           setBalance(lockData.balanceAfter);
         }
-        const mark = await fetchMarkFrom1m();
-        const endsAt = Date.now() + durationMs;
-        const next: ActiveLiquidityLock = {
-          principalUsd: amountUsd,
-          startedAt: Date.now(),
-          endsAt,
-          sessionPnlUsd: 0,
-          trades: [],
-          prevMark: mark,
-        };
-        setActiveLock(next);
+        if (lockData.lock) {
+          setActiveLock(mapActiveLock(lockData.lock));
+        } else {
+          await refreshWallet();
+        }
         await refreshWallet();
         return { ok: true };
       } catch (e) {

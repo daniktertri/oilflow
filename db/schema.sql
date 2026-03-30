@@ -34,7 +34,8 @@ CREATE TABLE IF NOT EXISTS ledger_entries (
       'withdraw',
       'withdraw_refund',
       'lock_in',
-      'lock_settle'
+      'lock_settle',
+      'lock_yield'
     )
   ),
   amount numeric(20, 6) NOT NULL,
@@ -73,4 +74,69 @@ CREATE TABLE IF NOT EXISTS custody_state (
   key text PRIMARY KEY,
   value text NOT NULL,
   updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- Liquidity locks (server source of truth); hourly yield credited while active.
+
+CREATE TABLE IF NOT EXISTS liquidity_locks (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+  principal_usd numeric(20, 6) NOT NULL,
+  accumulated_yield_usd numeric(20, 6) NOT NULL DEFAULT 0,
+  started_at timestamptz NOT NULL DEFAULT now(),
+  ends_at timestamptz NOT NULL,
+  status text NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'settled')),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS liquidity_locks_one_active_per_user
+  ON liquidity_locks (user_id)
+  WHERE status = 'active';
+
+CREATE INDEX IF NOT EXISTS liquidity_locks_status_ends_at_idx
+  ON liquidity_locks (status, ends_at)
+  WHERE status = 'active';
+
+CREATE TABLE IF NOT EXISTS lock_synthetic_trades (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  lock_id uuid NOT NULL REFERENCES liquidity_locks (id) ON DELETE CASCADE,
+  user_id uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+  liquidity_source text NOT NULL CHECK (
+    liquidity_source IN ('user_liquidity', 'platform_liquidity')
+  ),
+  hour_bucket timestamptz NOT NULL,
+  pnl_usd numeric(20, 6) NOT NULL,
+  notional_usd numeric(20, 6) NOT NULL,
+  side text NOT NULL DEFAULT 'long' CHECK (side IN ('long', 'short')),
+  fee_usd numeric(20, 6) NOT NULL DEFAULT 0,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (lock_id, hour_bucket, liquidity_source)
+);
+
+CREATE INDEX IF NOT EXISTS lock_synthetic_trades_user_created_idx
+  ON lock_synthetic_trades (user_id, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS daily_returns (
+  user_id uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+  day date NOT NULL,
+  pnl_usd numeric(20, 6) NOT NULL DEFAULT 0,
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, day)
+);
+
+CREATE INDEX IF NOT EXISTS daily_returns_user_day_idx
+  ON daily_returns (user_id, day DESC);
+
+-- Migrate existing DBs created before lock_yield was added
+ALTER TABLE ledger_entries DROP CONSTRAINT IF EXISTS ledger_entries_kind_check;
+ALTER TABLE ledger_entries ADD CONSTRAINT ledger_entries_kind_check CHECK (
+  kind IN (
+    'deposit',
+    'withdraw',
+    'withdraw_refund',
+    'lock_in',
+    'lock_settle',
+    'lock_yield'
+  )
 );

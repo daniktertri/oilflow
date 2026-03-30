@@ -48,7 +48,7 @@ export function DailyPnlChart({ rows, todayOpenSessionPnlUsd = 0 }: Props) {
 
   const data = useMemo(() => {
     const today = new Date();
-    const tk = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+    const tk = `${today.getUTCFullYear()}-${String(today.getUTCMonth() + 1).padStart(2, "0")}-${String(today.getUTCDate()).padStart(2, "0")}`;
     const merged = rows.map((r) => ({ ...r }));
     const ti = merged.findIndex((r) => r.date === tk);
     if (todayOpenSessionPnlUsd !== 0) {

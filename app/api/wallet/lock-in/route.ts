@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
-import { applyLockIn } from "@/lib/db/wallet";
+import { ensureAccountBalanceRow, lockInWithSession } from "@/lib/db/wallet";
 import { getSessionUserId } from "@/lib/wallet-session";
 
 export async function POST(req: Request) {
@@ -12,7 +12,7 @@ export async function POST(req: Request) {
     );
   }
 
-  let body: { amountUsd?: unknown };
+  let body: { amountUsd?: unknown; durationMs?: unknown };
   try {
     body = (await req.json()) as typeof body;
   } catch {
@@ -26,9 +26,23 @@ export async function POST(req: Request) {
         ? Number(body.amountUsd)
         : NaN;
 
+  const durationMs =
+    typeof body.durationMs === "number"
+      ? body.durationMs
+      : typeof body.durationMs === "string"
+        ? Number(body.durationMs)
+        : NaN;
+
   if (!Number.isFinite(amountUsd) || amountUsd < 10) {
     return NextResponse.json(
       { error: "Minimum lock is $10." },
+      { status: 400 }
+    );
+  }
+
+  if (!Number.isFinite(durationMs) || durationMs <= 0) {
+    return NextResponse.json(
+      { error: "Lock duration is required (durationMs)." },
       { status: 400 }
     );
   }
@@ -41,10 +55,15 @@ export async function POST(req: Request) {
     );
   }
 
-  const result = await applyLockIn(sql, userId, amountUsd);
+  await ensureAccountBalanceRow(sql, userId);
+  const result = await lockInWithSession(sql, userId, amountUsd, durationMs);
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: 400 });
   }
 
-  return NextResponse.json({ ok: true, balanceAfter: result.balanceAfter });
+  return NextResponse.json({
+    ok: true,
+    balanceAfter: result.balanceAfter,
+    lock: result.lock,
+  });
 }

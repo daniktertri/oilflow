@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
-import { settleActiveLockPrincipalOnly } from "@/lib/db/wallet";
+import { listDailyReturns } from "@/lib/db/wallet";
 import { getSessionUserId } from "@/lib/wallet-session";
 
-export async function POST() {
+export async function GET() {
   const userId = await getSessionUserId();
   if (!userId) {
     return NextResponse.json(
@@ -20,14 +20,11 @@ export async function POST() {
     );
   }
 
-  const result = await settleActiveLockPrincipalOnly(sql, userId);
-  if (!result.ok) {
-    return NextResponse.json({ error: result.error }, { status: 400 });
-  }
-
+  const rows = await listDailyReturns(sql, userId, 5000);
   return NextResponse.json({
-    ok: true,
-    balanceAfter: result.balanceAfter,
-    principalUsd: result.principalUsd,
+    rows: rows.map((r) => ({
+      date: r.day,
+      pnlUsd: Number(r.pnl_usd),
+    })),
   });
 }
