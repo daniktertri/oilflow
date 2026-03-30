@@ -7,6 +7,7 @@ import { useTelegramAuth } from "@/components/telegram-auth-provider";
 
 const links: { href: string; label: string }[] = [
   { href: "/", label: "Chart" },
+  { href: "/dashboard", label: "Dashboard" },
   { href: "/balance", label: "Balance" },
   { href: "/lock", label: "Lock liquidity" },
   { href: "/how-it-works", label: "How it works" },

@@ -10,7 +10,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useTelegramAuth } from "@/components/telegram-auth-provider";
 import {
   hasCompletedOnboarding,
@@ -30,8 +30,8 @@ const STEPS: TourStep[] = [
     body: (
       <>
         This app tracks <strong className="text-[#ffc107]">WTI crude oil</strong>{" "}
-        on Hyperliquid with <strong>USDC margin</strong>. Use the tour to learn
-        where prices, your wallet, and liquidity locks live.
+        on Hyperliquid with <strong>USDC margin</strong>. This tour covers the
+        chart, balance, locks, and the dashboard.
       </>
     ),
   },
@@ -40,10 +40,9 @@ const STEPS: TourStep[] = [
     targetAttr: "tour-nav",
     body: (
       <>
-        Move between <strong>Chart</strong> (live market view),{" "}
-        <strong>Balance</strong> (wallet &amp; deposits),{" "}
-        <strong>Lock liquidity</strong>, and <strong>How it works</strong> for the
-        full product story.
+        Use <strong>Chart</strong>, <strong>Dashboard</strong>,{" "}
+        <strong>Balance</strong>, <strong>Lock liquidity</strong>, and{" "}
+        <strong>How it works</strong> to move around the app.
       </>
     ),
   },
@@ -52,10 +51,9 @@ const STEPS: TourStep[] = [
     targetAttr: "tour-stats",
     body: (
       <>
-        On the chart page, this row shows <strong>last price</strong>,{" "}
-        <strong>oracle</strong>, <strong>24h volume</strong>, the selected{" "}
-        <strong>interval</strong>, bar count, and <strong>lock time left</strong>{" "}
-        when you have an active session.
+        <strong>Last</strong>, <strong>oracle</strong>, <strong>24h volume</strong>
+        , interval, bar count, and <strong>lock time left</strong> when a session is
+        running.
       </>
     ),
   },
@@ -64,9 +62,8 @@ const STEPS: TourStep[] = [
     targetAttr: "tour-chart-controls",
     body: (
       <>
-        Switch <strong>area</strong> vs <strong>candles</strong>, pick a time{" "}
-        <strong>interval</strong>, and <strong>refresh</strong> to reload data from
-        the API.
+        Switch <strong>area</strong> vs <strong>candles</strong>, pick an{" "}
+        <strong>interval</strong>, and <strong>refresh</strong> to reload data.
       </>
     ),
   },
@@ -75,20 +72,110 @@ const STEPS: TourStep[] = [
     targetAttr: "tour-bot-feed",
     body: (
       <>
-        A synthesized feed of market-wide style activity for the pair—use it
-        alongside the chart for context (not a personal trade log).
+        A synthesized market-style feed for the pair—not your personal fills.
       </>
     ),
   },
   {
-    title: "Wallet & locks",
+    title: "Wallet in the header",
     targetAttr: "tour-header-wallet",
     body: (
       <>
-        The header shows <strong>BAL</strong> (balance link), optional{" "}
-        <strong>locked</strong> principal and <strong>session P&amp;L</strong> when
-        applicable. Open <strong>Balance</strong> or <strong>Lock liquidity</strong>{" "}
-        from the nav for deposits and lock flows.
+        Quick view of <strong>BAL</strong>, and when applicable{" "}
+        <strong>locked</strong> size and <strong>session P&amp;L</strong>.
+      </>
+    ),
+  },
+  {
+    title: "Available balance",
+    targetAttr: "tour-balance-available",
+    body: (
+      <>
+        Your <strong>spendable USDC</strong> in the app (simulated wallet). Locks
+        and withdrawals pull from here.
+      </>
+    ),
+  },
+  {
+    title: "Deposit",
+    targetAttr: "tour-balance-deposit",
+    body: (
+      <>
+        <strong>Solana USDC</strong> deposit address and QR. Record simulated
+        top-ups after you send on-chain (until sync is wired).
+      </>
+    ),
+  },
+  {
+    title: "Top-up & withdraw",
+    targetAttr: "tour-balance-actions",
+    body: (
+      <>
+        <strong>Top-up</strong> credits balance for demos; <strong>withdraw</strong>{" "}
+        moves USDC out if you have enough.
+      </>
+    ),
+  },
+  {
+    title: "Ledger",
+    targetAttr: "tour-balance-ledger",
+    body: (
+      <>
+        <strong>Recent transactions</strong>: deposits, withdrawals, lock-ins, and
+        settlements—newest at the top.
+      </>
+    ),
+  },
+  {
+    title: "Lock panel",
+    targetAttr: "tour-lock-wallet",
+    body: (
+      <>
+        See <strong>wallet balance</strong>, start a <strong>lock</strong> with
+        amount and duration, or track an active lock&apos;s principal and session
+        P&amp;L.
+      </>
+    ),
+  },
+  {
+    title: "Lock & run",
+    targetAttr: "tour-lock-form",
+    body: (
+      <>
+        Choose <strong>amount</strong> and <strong>duration</strong>, then{" "}
+        <strong>Lock &amp; run</strong>. While active, one simulated fill per
+        minute updates session P&amp;L.
+      </>
+    ),
+  },
+  {
+    title: "Executed trades",
+    targetAttr: "tour-lock-trades",
+    body: (
+      <>
+        Per-minute <strong>fills</strong> during an active lock—side, price,
+        notional, fee, and P&amp;L for that minute.
+      </>
+    ),
+  },
+  {
+    title: "Dashboard overview",
+    targetAttr: "tour-dashboard-overview",
+    body: (
+      <>
+        Snapshot of <strong>available</strong> USDC, <strong>locked</strong>{" "}
+        principal, <strong>session P&amp;L</strong>, and <strong>time left</strong>{" "}
+        for the current lock.
+      </>
+    ),
+  },
+  {
+    title: "Daily P&L chart",
+    targetAttr: "tour-dashboard-pnl",
+    body: (
+      <>
+        <strong>Realized P&L by day</strong> when locks settle. Today&apos;s bar can
+        include <strong>open session</strong> P&L until the lock ends.
       </>
     ),
   },
@@ -96,19 +183,38 @@ const STEPS: TourStep[] = [
     title: "You are set",
     body: (
       <>
-        For risk, AI behaviour, and mechanics, read{" "}
+        Read{" "}
         <Link
           href="/how-it-works"
           className="text-[#00e5ff] underline hover:text-[#ffc107]"
         >
           How it works
-        </Link>
-        . You can dismiss this tour anytime; it will not show again on this
-        browser for your account.
+        </Link>{" "}
+        for risk and mechanics. Skip anytime—this tour won&apos;t show again for
+        your account on this browser.
       </>
     ),
   },
 ];
+
+/** Route the tour expects for each step so highlights match the page. */
+function pathForStepIndex(s: number): string | null {
+  if (s <= 5) return "/";
+  if (s <= 9) return "/balance";
+  if (s <= 12) return "/lock";
+  if (s <= 15) return "/dashboard";
+  return null;
+}
+
+function pathLabel(path: string): string {
+  const m: Record<string, string> = {
+    "/": "Chart",
+    "/balance": "Balance",
+    "/lock": "Lock liquidity",
+    "/dashboard": "Dashboard",
+  };
+  return m[path] ?? path;
+}
 
 type Rect = { top: number; left: number; width: number; height: number };
 
@@ -129,6 +235,7 @@ function readHighlightRect(attr: string | undefined): Rect | null {
 export function FirstLoginTour() {
   const { user, loading } = useTelegramAuth();
   const pathname = usePathname();
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState(0);
   const [rect, setRect] = useState<Rect | null>(null);
@@ -138,7 +245,6 @@ export function FirstLoginTour() {
     [user]
   );
 
-  /** Avoid resetting step when pathname changes mid-tour; reset when user logs out */
   const openedThisLoginRef = useRef(false);
 
   useEffect(() => {
@@ -156,6 +262,14 @@ export function FirstLoginTour() {
 
   const current = STEPS[step]!;
   const isLast = step === STEPS.length - 1;
+
+  const expectedPath = pathForStepIndex(step);
+
+  useEffect(() => {
+    if (!open || expectedPath == null) return;
+    if (pathname === expectedPath) return;
+    router.push(expectedPath);
+  }, [open, step, pathname, expectedPath, router]);
 
   const updateRect = useCallback(() => {
     const r = readHighlightRect(current.targetAttr);
@@ -206,6 +320,7 @@ export function FirstLoginTour() {
   if (!open || !user) return null;
 
   const showHole = rect && rect.width > 0 && rect.height > 0;
+  const hintPath = expectedPath && pathname !== expectedPath ? expectedPath : null;
 
   return (
     <div
@@ -215,7 +330,6 @@ export function FirstLoginTour() {
       aria-labelledby="first-login-tour-title"
       aria-describedby="first-login-tour-desc"
     >
-      {/* Dim overlays — four rects around highlight */}
       {showHole ? (
         <>
           <div
@@ -280,11 +394,26 @@ export function FirstLoginTour() {
           >
             {current.body}
           </div>
-          {current.targetAttr && !showHole ? (
+          {hintPath ? (
+            <p className="mb-4 text-[10px] text-[#5c6578]">
+              Opening{" "}
+              <Link
+                href={hintPath}
+                className="text-[#00e5ff] underline hover:text-[#ffc107]"
+              >
+                {pathLabel(hintPath)}
+              </Link>
+              …
+            </p>
+          ) : null}
+          {current.targetAttr && !showHole && !hintPath ? (
             <p className="mb-4 text-[10px] text-[#5c6578]">
               Go to{" "}
-              <Link href="/" className="text-[#00e5ff] underline hover:text-[#ffc107]">
-                Chart
+              <Link
+                href={expectedPath ?? "/"}
+                className="text-[#00e5ff] underline hover:text-[#ffc107]"
+              >
+                {pathLabel(expectedPath ?? "/")}
               </Link>{" "}
               to see this area highlighted.
             </p>

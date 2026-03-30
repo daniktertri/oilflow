@@ -100,7 +100,10 @@ export default function BalancePage() {
           simulated credit here until on-chain sync is wired.
         </p>
 
-        <section className="mb-6 rounded border border-[#1e2430] bg-[#12151c] p-4">
+        <section
+          data-tour="tour-balance-available"
+          className="mb-6 rounded border border-[#1e2430] bg-[#12151c] p-4"
+        >
           <div className="mb-2 text-[10px] uppercase tracking-wider text-[#5c6578]">
             Available
           </div>
@@ -109,7 +112,10 @@ export default function BalancePage() {
           </div>
         </section>
 
-        <section className="mb-6 rounded border border-[#1e2430] bg-[#12151c] p-4">
+        <section
+          data-tour="tour-balance-deposit"
+          className="mb-6 rounded border border-[#1e2430] bg-[#12151c] p-4"
+        >
           <h2 className="mb-3 text-[10px] uppercase tracking-wider text-[#5c6578]">
             Deposit (Solana · USDC)
           </h2>
@@ -150,7 +156,10 @@ export default function BalancePage() {
           </div>
         </section>
 
-        <section className="mb-6 grid gap-4 sm:grid-cols-2">
+        <section
+          data-tour="tour-balance-actions"
+          className="mb-6 grid gap-4 sm:grid-cols-2"
+        >
           <div className="rounded border border-[#1e2430] bg-[#12151c] p-4">
             <h2 className="mb-3 text-[10px] uppercase tracking-wider text-[#5c6578]">
               Top-up (simulated)
@@ -205,7 +214,10 @@ export default function BalancePage() {
           </div>
         </section>
 
-        <section className="rounded border border-[#1e2430] bg-[#12151c]">
+        <section
+          data-tour="tour-balance-ledger"
+          className="rounded border border-[#1e2430] bg-[#12151c]"
+        >
           <div className="border-b border-[#1e2430] px-4 py-2 text-[10px] uppercase tracking-wider text-[#5c6578]">
             Recent transactions
           </div>

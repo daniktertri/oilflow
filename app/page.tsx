@@ -448,8 +448,12 @@ export default function OilTradePage() {
 
         <section className="col-span-12 border-t border-[#1e2430] bg-[#12151c] px-3 py-2 text-[10px] text-[#5c6578]">
           {WTIOIL_USDC.displayPair} uses API coin{" "}
-          <code className="text-[#5c6578]">{WTIOIL_USDC.coin}</code>. Chart:
-          candle close. Wallet and locks:{" "}
+          <code className="text-[#5c6578]">{WTIOIL_USDC.coin}</code>.           Chart:
+          candle close. Wallet, dashboard, and locks:{" "}
+          <Link href="/dashboard" className="text-[#00e5ff] hover:underline">
+            Dashboard
+          </Link>{" "}
+          ·{" "}
           <Link href="/balance" className="text-[#00e5ff] hover:underline">
             Balance
           </Link>{" "}

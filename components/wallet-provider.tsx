@@ -17,6 +17,7 @@ import {
   type ActiveLiquidityLock,
 } from "@/lib/session-trading";
 import { fetchMarkFrom1m } from "@/lib/mark-price";
+import { addSessionPnlToDay } from "@/lib/pnl-history";
 import {
   appendLedgerEntry,
   loadBalance,
@@ -66,6 +67,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     const l = loadLock();
     if (l && Date.now() >= l.endsAt) {
       const returned = l.principalUsd + l.sessionPnlUsd;
+      addSessionPnlToDay(Math.min(Date.now(), l.endsAt), l.sessionPnlUsd);
       b += returned;
       saveBalance(b);
       saveLock(null);
@@ -106,6 +108,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     if (settledEndsAtRef.current === L.endsAt) return;
     settledEndsAtRef.current = L.endsAt;
     const returned = L.principalUsd + L.sessionPnlUsd;
+    addSessionPnlToDay(Math.min(Date.now(), L.endsAt), L.sessionPnlUsd);
     setBalance((b) => {
       const next = b + returned;
       appendLedgerEntry("lock_settle", returned, next);

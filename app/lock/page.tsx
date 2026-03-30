@@ -71,7 +71,10 @@ export default function LockLiquidityPage() {
         </p>
 
         <div className="mb-6 grid gap-4 lg:grid-cols-2">
-          <section className="rounded border border-[#1e2430] bg-[#12151c] p-4">
+          <section
+            data-tour="tour-lock-wallet"
+            className="rounded border border-[#1e2430] bg-[#12151c] p-4"
+          >
             <div className="mb-2 text-[10px] uppercase tracking-wider text-[#5c6578]">
               Wallet (USDC)
             </div>
@@ -80,7 +83,7 @@ export default function LockLiquidityPage() {
             </div>
 
             {!activeLock ? (
-              <>
+              <div data-tour="tour-lock-form">
                 <label className="mb-1 block text-[10px] text-[#5c6578]">
                   Amount (USDC)
                 </label>
@@ -120,9 +123,9 @@ export default function LockLiquidityPage() {
                   Locked funds route into automated execution for the chosen
                   window. One fill per minute while the lock is active.
                 </p>
-              </>
+              </div>
             ) : (
-              <div className="space-y-2 text-[10px]">
+              <div data-tour="tour-lock-form" className="space-y-2 text-[10px]">
                 <div className="flex justify-between font-mono text-[#c8d0e0]">
                   <span className="text-[#5c6578]">Locked</span>
                   <span>{formatUsd(activeLock.principalUsd)}</span>
@@ -151,7 +154,10 @@ export default function LockLiquidityPage() {
             )}
           </section>
 
-          <section className="rounded border border-[#1e2430] bg-[#12151c]">
+          <section
+            data-tour="tour-lock-trades"
+            className="rounded border border-[#1e2430] bg-[#12151c]"
+          >
             <div className="border-b border-[#1e2430] px-4 py-2 text-[10px] uppercase tracking-wider text-[#5c6578]">
               Executed trades
             </div>
