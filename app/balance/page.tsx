@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useWallet } from "@/components/wallet-provider";
 import { useTelegramAuth } from "@/components/telegram-auth-provider";
 import type { WalletLedgerEntry } from "@/lib/wallet-storage";
@@ -42,6 +42,73 @@ function kindLabel(k: WalletLedgerEntry["kind"]): string {
   }
 }
 
+function Modal({
+  open,
+  title,
+  onClose,
+  children,
+}: {
+  open: boolean;
+  title: string;
+  onClose: () => void;
+  children: React.ReactNode;
+}) {
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
+
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [open]);
+
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <button
+        type="button"
+        className="absolute inset-0 bg-black/65"
+        aria-label="Close dialog"
+        onClick={onClose}
+      />
+      <div
+        className="relative z-10 w-full max-w-md rounded border border-[#1e2430] bg-[#12151c] p-4 shadow-xl"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="balance-modal-title"
+      >
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <h2
+            id="balance-modal-title"
+            className="font-mono text-[11px] uppercase tracking-wider text-[#ffc107]"
+          >
+            {title}
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="shrink-0 border border-[#2a3140] px-2 py-0.5 font-mono text-[12px] leading-none text-[#5c6578] hover:border-[#5c6578] hover:text-[#c8d0e0]"
+            aria-label="Close"
+          >
+            ×
+          </button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
 export default function BalancePage() {
   const { user, loading: authLoading } = useTelegramAuth();
   const {
@@ -52,6 +119,8 @@ export default function BalancePage() {
     refreshWallet,
     withdrawUsd,
   } = useWallet();
+  const [topUpOpen, setTopUpOpen] = useState(false);
+  const [withdrawOpen, setWithdrawOpen] = useState(false);
   const [withdrawAmount, setWithdrawAmount] = useState("");
   const [withdrawDest, setWithdrawDest] = useState("");
   const [withdrawError, setWithdrawError] = useState<string | null>(null);
@@ -99,16 +168,27 @@ export default function BalancePage() {
       }
       setWithdrawAmount("");
       setWithdrawDest("");
+      setWithdrawOpen(false);
       await refreshWallet();
     } finally {
       setWithdrawBusy(false);
     }
   };
 
+  const setMaxWithdraw = () => {
+    if (!Number.isFinite(balance) || balance <= 0) {
+      setWithdrawAmount("");
+      return;
+    }
+    setWithdrawAmount(balance.toFixed(2));
+  };
+
   const ledgerRows = [...recentLedger].reverse();
 
   const showSignIn = !authLoading && !user;
-  const showNoDeposit = user && hydrated && !depositAddress;
+  const showNoDeposit = Boolean(user && hydrated && !depositAddress);
+  const topUpLoadingWallet = Boolean(user && !hydrated);
+  const actionsDisabled = !user;
 
   return (
     <div className="min-h-screen bg-[#0c0e12] text-[#c8d0e0]">
@@ -140,20 +220,62 @@ export default function BalancePage() {
           </div>
         </section>
 
-        <section
-          data-tour="tour-balance-deposit"
-          className="mb-6 rounded border border-[#1e2430] bg-[#12151c] p-4"
+        <div
+          data-tour="tour-balance-actions"
+          className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2"
         >
-          <h2 className="mb-3 text-[10px] uppercase tracking-wider text-[#5c6578]">
-            Deposit (Solana · USDC)
-          </h2>
-          {showNoDeposit ? (
-            <p className="text-[10px] leading-relaxed text-[#5c6578]">
-              Your personal deposit address is not ready yet. Run the custody
-              worker on your VPS (see{" "}
-              <code className="text-[#5c6578]">scripts/solana-custody</code>) so
-              it can provision wallets in the database.
-            </p>
+          <button
+            type="button"
+            data-tour="tour-balance-deposit"
+            disabled={actionsDisabled}
+            onClick={() => setTopUpOpen(true)}
+            className="rounded border-2 border-[#00e5ff]/40 bg-[#0a1620] px-4 py-5 text-center font-mono text-[13px] uppercase tracking-wide text-[#00e5ff] transition hover:border-[#00e5ff] hover:bg-[#0c1a24] disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Top up
+          </button>
+          <button
+            type="button"
+            disabled={actionsDisabled}
+            onClick={() => {
+              setWithdrawError(null);
+              setWithdrawOpen(true);
+            }}
+            className="rounded border-2 border-[#ff5252]/40 bg-[#1a0c0c] px-4 py-5 text-center font-mono text-[13px] uppercase tracking-wide text-[#ff8a80] transition hover:border-[#ff5252] hover:bg-[#221010] disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Withdraw
+          </button>
+        </div>
+
+        <Modal
+          open={topUpOpen}
+          title="Top up — Solana USDC"
+          onClose={() => setTopUpOpen(false)}
+        >
+          {topUpLoadingWallet ? (
+            <div className="flex flex-col items-center gap-4 py-6 text-center">
+              <div
+                className="h-10 w-10 rounded-full border-2 border-[#2a3140] border-t-[#ffc107] animate-spin"
+                aria-hidden
+              />
+              <p className="text-[10px] text-[#5c6578]">Loading wallet…</p>
+            </div>
+          ) : showNoDeposit ? (
+            <div className="flex flex-col items-center gap-5 py-2 text-center">
+              <div
+                className="h-12 w-12 rounded-full border-2 border-[#2a3140] border-t-[#00e5ff] animate-spin"
+                aria-hidden
+              />
+              <div>
+                <p className="mb-2 font-mono text-[11px] text-[#c8d0e0]">
+                  Generating your deposit address…
+                </p>
+                <p className="text-[10px] leading-relaxed text-[#5c6578]">
+                  This can take a minute while the custody worker provisions your
+                  wallet. You can close this dialog and come back shortly, or
+                  refresh the page.
+                </p>
+              </div>
+            </div>
           ) : (
             <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start">
               <div className="rounded bg-white p-3">
@@ -161,13 +283,13 @@ export default function BalancePage() {
                   <img
                     src={qrSrc}
                     alt=""
-                    width={160}
-                    height={160}
-                    className="block h-[160px] w-[160px]"
+                    width={176}
+                    height={176}
+                    className="block h-[176px] w-[176px]"
                     decoding="async"
                   />
                 ) : (
-                  <div className="flex h-[160px] w-[160px] items-center justify-center bg-[#eee] text-[10px] text-[#666]">
+                  <div className="flex h-[176px] w-[176px] items-center justify-center bg-[#eee] text-[10px] text-[#666]">
                     —
                   </div>
                 )}
@@ -194,54 +316,72 @@ export default function BalancePage() {
               </div>
             </div>
           )}
-        </section>
+        </Modal>
 
-        <section
-          data-tour="tour-balance-actions"
-          className="mb-6 rounded border border-[#1e2430] bg-[#12151c] p-4"
+        <Modal
+          open={withdrawOpen}
+          title="Withdraw on-chain"
+          onClose={() => !withdrawBusy && setWithdrawOpen(false)}
         >
-          <h2 className="mb-3 text-[10px] uppercase tracking-wider text-[#5c6578]">
-            Withdraw (on-chain)
-          </h2>
-          <p className="mb-3 text-[10px] leading-relaxed text-[#5c6578]">
-            Request a transfer from the app treasury to your Solana wallet. Amount
-            is deducted from your available balance; the VPS worker signs and
-            sends USDC.
+          <p className="mb-4 text-[10px] leading-relaxed text-[#5c6578]">
+            Request a transfer from the app treasury to your Solana wallet. The
+            amount is deducted from your available balance; the custody worker
+            signs and sends USDC.
           </p>
-          <div className="flex flex-col gap-2 sm:max-w-md">
+          <div className="mb-3 flex items-baseline justify-between gap-2">
+            <span className="text-[10px] uppercase tracking-wider text-[#5c6578]">
+              Available to withdraw
+            </span>
+            <span className="font-mono text-[12px] text-[#c8d0e0]">
+              {!user || !hydrated ? "—" : formatUsd(balance)}
+            </span>
+          </div>
+          <div className="flex flex-col gap-3">
             <input
               type="text"
               placeholder="Destination Solana address"
-              className="w-full border border-[#2a3140] bg-[#0c0e12] px-2 py-1.5 font-mono text-[10px] text-[#c8d0e0] outline-none focus:border-[#ffc107]"
+              className="w-full border border-[#2a3140] bg-[#0c0e12] px-2 py-2 font-mono text-[10px] text-[#c8d0e0] outline-none focus:border-[#ffc107]"
               value={withdrawDest}
               onChange={(e) => setWithdrawDest(e.target.value)}
-              disabled={!user}
+              disabled={!user || withdrawBusy}
+              autoComplete="off"
             />
-            <div className="flex gap-1">
+            <div className="flex flex-wrap items-stretch gap-2">
               <input
                 type="number"
+                inputMode="decimal"
                 min={0}
                 step="0.01"
                 placeholder="Amount (USDC)"
-                className="min-w-0 flex-1 border border-[#2a3140] bg-[#0c0e12] px-2 py-1.5 font-mono text-[10px] text-[#c8d0e0] outline-none focus:border-[#ffc107]"
+                className="min-w-0 flex-1 border border-[#2a3140] bg-[#0c0e12] px-2 py-2 font-mono text-[10px] text-[#c8d0e0] outline-none [appearance:textfield] focus:border-[#ffc107] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                 value={withdrawAmount}
                 onChange={(e) => setWithdrawAmount(e.target.value)}
-                disabled={!user}
+                disabled={!user || withdrawBusy}
               />
               <button
                 type="button"
-                onClick={() => void onWithdraw()}
-                disabled={!user || withdrawBusy}
-                className="border border-[#2a3140] px-2 py-1.5 text-[10px] font-mono uppercase text-[#ff5252] hover:border-[#ff5252] disabled:opacity-40"
+                onClick={setMaxWithdraw}
+                disabled={
+                  !user || withdrawBusy || !hydrated || balance <= 0
+                }
+                className="shrink-0 border border-[#2a3140] px-3 py-2 text-[10px] font-mono uppercase text-[#ffc107] hover:border-[#ffc107] disabled:opacity-40"
               >
-                {withdrawBusy ? "…" : "Withdraw"}
+                Max
               </button>
             </div>
+            <button
+              type="button"
+              onClick={() => void onWithdraw()}
+              disabled={!user || withdrawBusy}
+              className="border border-[#ff5252]/60 bg-[#1a0c0c] py-2.5 text-[11px] font-mono uppercase text-[#ff8a80] hover:border-[#ff5252] disabled:opacity-40"
+            >
+              {withdrawBusy ? "Submitting…" : "Confirm withdrawal"}
+            </button>
           </div>
           {withdrawError && (
-            <p className="mt-2 text-[10px] text-[#ff5252]">{withdrawError}</p>
+            <p className="mt-3 text-[10px] text-[#ff5252]">{withdrawError}</p>
           )}
-        </section>
+        </Modal>
 
         <section
           data-tour="tour-balance-ledger"
