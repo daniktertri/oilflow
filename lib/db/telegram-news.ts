@@ -54,3 +54,23 @@ export async function listTelegramChannelPosts(
   `;
   return rows as TelegramChannelPostRow[];
 }
+
+/** Keep only the newest `keep` rows for this channel (public-feed slug). */
+export async function pruneTelegramChannelPosts(
+  sql: Sql,
+  channelChatId: string,
+  keep: number
+): Promise<void> {
+  if (keep < 1) return;
+  await sql`
+    DELETE FROM telegram_channel_posts
+    WHERE channel_chat_id = ${channelChatId}
+      AND id NOT IN (
+        SELECT id
+        FROM telegram_channel_posts
+        WHERE channel_chat_id = ${channelChatId}
+        ORDER BY posted_at DESC
+        LIMIT ${keep}
+      )
+  `;
+}

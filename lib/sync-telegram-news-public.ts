@@ -1,6 +1,9 @@
 import type { neon } from "@neondatabase/serverless";
-import { upsertTelegramChannelPost } from "@/lib/db/telegram-news";
-import { stripTrailingChannelMention } from "@/lib/telegram-news-text";
+import {
+  pruneTelegramChannelPosts,
+  upsertTelegramChannelPost,
+} from "@/lib/db/telegram-news";
+import { finalizeNewsPlainText } from "@/lib/telegram-news-text";
 import {
   fetchTelegramPublicChannelPage,
   parsePrevBeforeCursor,
@@ -11,6 +14,14 @@ type Sql = ReturnType<typeof neon>;
 
 const SYNC_STATE_KEY = "telegram_news_public_last_sync";
 const DEFAULT_INTERVAL_MS = 5 * 60 * 1000;
+
+function maxNewsRows(): number {
+  const raw = process.env.TELEGRAM_NEWS_DB_MAX_ROWS?.trim();
+  if (!raw) return 5;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n < 1) return 5;
+  return Math.min(20, Math.floor(n));
+}
 
 function channelUsername(): string {
   return (
@@ -81,13 +92,15 @@ export async function syncTelegramNewsFromPublicFeedIfStale(
   let cursor: string | null = null;
 
   const slugLower = user.toLowerCase();
+  const chatId = publicChannelChatId(slugLower);
+  const keep = maxNewsRows();
   for (let page = 0; page < pages; page++) {
     const parsed = parseTelegramPublicChannelHtml(html, slugLower);
     for (const msg of parsed) {
-      const textPlain = stripTrailingChannelMention(msg.textPlain, mentionName);
+      const textPlain = finalizeNewsPlainText(msg.textPlain, mentionName);
       if (!textPlain.trim()) continue;
       await upsertTelegramChannelPost(sql, {
-        channelChatId: publicChannelChatId(msg.channelSlug),
+        channelChatId: chatId,
         channelUsername: user,
         messageId: msg.messageId,
         textPlain,
@@ -100,6 +113,8 @@ export async function syncTelegramNewsFromPublicFeedIfStale(
     if (!cursor) break;
     html = await fetchTelegramPublicChannelPage(user, cursor);
   }
+
+  await pruneTelegramChannelPosts(sql, chatId, keep);
 
   await setLastSyncIso(sql, new Date().toISOString());
   return { ran: true, upserted };

@@ -5,7 +5,7 @@ import { syncTelegramNewsFromPublicFeedIfStale } from "@/lib/sync-telegram-news-
 
 export const dynamic = "force-dynamic";
 
-const DEFAULT_LIMIT = 30;
+const DEFAULT_LIMIT = 5;
 
 export async function GET(req: Request) {
   const sql = getDb();

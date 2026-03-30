@@ -35,6 +35,15 @@ export function htmlToPlainText(html: string): string {
   return t.replace(/\n{3,}/g, "\n\n").trim();
 }
 
+/** Drop a trailing fragment like `<div class="` when the slice cut inside a tag. */
+function removeTrailingIncompleteTag(html: string): string {
+  const lastLt = html.lastIndexOf("<");
+  if (lastLt === -1) return html;
+  const tail = html.slice(lastLt);
+  if (tail.includes(">")) return html;
+  return html.slice(0, lastLt).trimEnd();
+}
+
 /** Extract inner HTML of the first message text block (before reactions/footer). */
 function extractMessageTextHtml(chunk: string): string | null {
   const marker = "tgme_widget_message_text";
@@ -50,7 +59,7 @@ function extractMessageTextHtml(chunk: string): string | null {
   const ends = [endRe, endFo].filter((x) => x >= 0);
   if (ends.length === 0) return null;
   const end = Math.min(...ends);
-  return rest.slice(0, end).trim();
+  return removeTrailingIncompleteTag(rest.slice(0, end).trim());
 }
 
 function parseDataPost(chunk: string): { slug: string; messageId: number } | null {

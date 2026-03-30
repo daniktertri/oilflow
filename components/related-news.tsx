@@ -31,7 +31,8 @@ export function RelatedNews() {
       setLoading(true);
       setErr(null);
       try {
-        const res = await fetch(sameOriginApi("/api/news/related", new URLSearchParams()), {
+        const q = new URLSearchParams({ limit: "5" });
+        const res = await fetch(sameOriginApi("/api/news/related", q), {
           cache: "no-store",
         });
         const data = (await res.json()) as {
@@ -61,16 +62,16 @@ export function RelatedNews() {
   }, []);
 
   return (
-    <div className="flex h-full min-h-0 flex-1 flex-col border-t border-[#1e2430] bg-[#0c0e12] lg:border-t-0">
+    <div className="flex h-full min-h-0 max-h-full flex-col overflow-hidden bg-[#0c0e12]">
       <div className="shrink-0 border-b border-[#1e2430] px-3 py-2">
         <div className="text-[11px] uppercase tracking-wider text-[#5c6578]">
           Related news
         </div>
         <div className="font-mono text-[11px] text-[#5c6578]">
-          AI signal feed (Telegram)
+          Last 5 · Telegram
         </div>
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto px-2 py-2">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 py-2">
         {loading && (
           <p className="px-1 font-mono text-[12px] text-[#5c6578]">Loading…</p>
         )}

@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { upsertTelegramChannelPost } from "@/lib/db/telegram-news";
 import {
+  finalizeNewsPlainText,
   messagePlainText,
-  stripTrailingChannelMention,
 } from "@/lib/telegram-news-text";
 
 export const dynamic = "force-dynamic";
@@ -84,7 +84,7 @@ export async function POST(req: Request) {
   }
 
   const mentionName = getNewsChannelUsername();
-  const textPlain = stripTrailingChannelMention(rawText, mentionName);
+  const textPlain = finalizeNewsPlainText(rawText, mentionName);
   if (!textPlain.trim()) {
     return NextResponse.json({ ok: true, skipped: "empty_after_strip" });
   }

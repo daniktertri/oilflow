@@ -6,6 +6,33 @@ export function escapeRegex(s: string): string {
 }
 
 /**
+ * Final plain text for storage: strip up to two trailing footer lines when they are
+ * empty, the channel @mention, or stray HTML fragments (e.g. `<div class="` from bad cuts).
+ */
+export function finalizeNewsPlainText(
+  text: string,
+  channelUsernameWithoutAt: string
+): string {
+  const name = channelUsernameWithoutAt.replace(/^@/, "").trim();
+  if (!name) return text.trim();
+  const mentionRe = new RegExp(`^@?${escapeRegex(name)}$`, "i");
+  const lines = text.split(/\r?\n/);
+  const isNoiseLine = (s: string) => {
+    const t = s.trim();
+    if (t === "") return true;
+    if (mentionRe.test(t)) return true;
+    if (t.startsWith("<")) return true;
+    return false;
+  };
+  let removed = 0;
+  while (lines.length > 0 && removed < 2 && isNoiseLine(lines[lines.length - 1])) {
+    lines.pop();
+    removed += 1;
+  }
+  return lines.join("\n").trimEnd();
+}
+
+/**
  * If the last non-empty line is only the channel mention (e.g. @BRICSNews), remove it.
  */
 export function stripTrailingChannelMention(
