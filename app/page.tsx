@@ -14,6 +14,7 @@ import { useWallet } from "@/components/wallet-provider";
 import { sameOriginApi } from "@/lib/client-api-url";
 import { CandleChart } from "@/components/candle-chart";
 import { PriceChart, type PriceChartRow } from "@/components/price-chart";
+import { RelatedNews } from "@/components/related-news";
 
 type PricePoint = { t: number; price: number };
 
@@ -369,17 +370,22 @@ export default function OilTradePage() {
               Chart data: {error}
             </div>
           )}
-          <div className="flex min-h-0 flex-1 flex-col">
-            {loading && chartData.length === 0 && !error && (
-              <p className="mb-2 text-center font-mono text-[13px] text-[#5c6578]">
-                Loading market data…
-              </p>
-            )}
-            {chartView === "area" ? (
-              <PriceChart data={chartData} />
-            ) : (
-              <CandleChart data={candleChartData} />
-            )}
+          <div className="flex min-h-0 flex-1 flex-col gap-0 lg:flex-row lg:gap-px lg:bg-[#1e2430]">
+            <div className="flex min-h-0 flex-1 flex-col">
+              {loading && chartData.length === 0 && !error && (
+                <p className="mb-2 text-center font-mono text-[13px] text-[#5c6578]">
+                  Loading market data…
+                </p>
+              )}
+              {chartView === "area" ? (
+                <PriceChart data={chartData} />
+              ) : (
+                <CandleChart data={candleChartData} />
+              )}
+            </div>
+            <aside className="flex max-h-[min(40vh,360px)] w-full shrink-0 flex-col lg:max-h-none lg:h-auto lg:w-[min(100%,300px)] lg:min-w-[260px]">
+              <RelatedNews />
+            </aside>
           </div>
         </main>
 

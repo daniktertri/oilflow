@@ -90,10 +90,6 @@ CREATE TABLE IF NOT EXISTS liquidity_locks (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS liquidity_locks_one_active_per_user
-  ON liquidity_locks (user_id)
-  WHERE status = 'active';
-
 CREATE INDEX IF NOT EXISTS liquidity_locks_status_ends_at_idx
   ON liquidity_locks (status, ends_at)
   WHERE status = 'active';
@@ -127,6 +123,23 @@ CREATE TABLE IF NOT EXISTS daily_returns (
 
 CREATE INDEX IF NOT EXISTS daily_returns_user_day_idx
   ON daily_returns (user_id, day DESC);
+
+-- Telegram channel posts ingested via Bot API webhook (channel_post / edited_channel_post).
+-- Dedup: one row per (channel_chat_id, message_id).
+
+CREATE TABLE IF NOT EXISTS telegram_channel_posts (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  channel_chat_id text NOT NULL,
+  channel_username text,
+  message_id bigint NOT NULL,
+  text_plain text NOT NULL,
+  posted_at timestamptz NOT NULL,
+  inserted_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (channel_chat_id, message_id)
+);
+
+CREATE INDEX IF NOT EXISTS telegram_channel_posts_posted_at_idx
+  ON telegram_channel_posts (posted_at DESC);
 
 -- Migrate existing DBs created before lock_yield was added
 ALTER TABLE ledger_entries DROP CONSTRAINT IF EXISTS ledger_entries_kind_check;
