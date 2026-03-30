@@ -381,7 +381,7 @@ export default function OilTradePage() {
             </div>
           )}
           <div className="flex min-h-0 flex-1 flex-col gap-0 lg:flex-row lg:items-stretch lg:gap-px lg:bg-[#1e2430]">
-            <div className="flex min-h-0 flex-1 flex-col">
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col">
               {loading && chartData.length === 0 && !error && (
                 <p className="mb-2 text-center font-mono text-[13px] text-[#5c6578]">
                   Loading market data…
@@ -393,7 +393,7 @@ export default function OilTradePage() {
                 <CandleChart data={candleChartData} />
               )}
             </div>
-            <aside className="flex min-h-0 max-h-[min(42vh,340px)] w-full shrink-0 flex-col overflow-hidden border-t border-[#1e2430] lg:max-h-none lg:h-full lg:w-[280px] lg:min-w-0 lg:shrink-0 lg:border-l lg:border-t-0">
+            <aside className="flex min-h-0 max-h-[min(38vh,300px)] w-full shrink-0 flex-col overflow-hidden border-t border-[#1e2430] lg:max-h-none lg:h-full lg:w-[min(360px,34vw)] lg:min-w-[280px] lg:shrink-0 lg:border-l lg:border-t-0">
               <RelatedNews />
             </aside>
           </div>

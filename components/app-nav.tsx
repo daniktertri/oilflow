@@ -1,9 +1,30 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { Suspense } from "react";
 import { usePathname } from "next/navigation";
 import { useTelegramAuth } from "@/components/telegram-auth-provider";
+
+function BrandLogo() {
+  return (
+    <Link
+      href="/"
+      className="mr-3 flex shrink-0 items-center gap-2"
+      aria-label="OilFlow home"
+    >
+      <Image
+        src="/favicon.svg"
+        alt=""
+        width={28}
+        height={28}
+        className="rounded-md"
+        priority
+      />
+      <span className="font-mono text-[12px] text-[#ffc107]">OilFlow</span>
+    </Link>
+  );
+}
 
 const links: { href: string; label: string }[] = [
   { href: "/", label: "Chart" },
@@ -17,7 +38,7 @@ const links: { href: string; label: string }[] = [
 export function AppNavFallback() {
   return (
     <nav className="flex flex-wrap items-center gap-2 border-b border-[#1e2430] bg-[#0a0c10] px-4 py-2.5">
-      <span className="mr-3 font-mono text-[12px] text-[#ffc107]">OilFlow</span>
+      <BrandLogo />
       {links.map(({ href, label }) => (
         <Link
           key={href}
@@ -40,7 +61,7 @@ function AppNavInner() {
       data-tour="tour-nav"
       className="flex flex-wrap items-center gap-2 border-b border-[#1e2430] bg-[#0a0c10] px-4 py-2.5"
     >
-      <span className="mr-3 font-mono text-[12px] text-[#ffc107]">OilFlow</span>
+      <BrandLogo />
       {links.map(({ href, label }) => {
         const active =
           href === "/"

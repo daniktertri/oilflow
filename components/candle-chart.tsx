@@ -49,7 +49,7 @@ export function CandleChart({ data }: { data: CandleChartRow[] }) {
       ro.disconnect();
       window.removeEventListener("resize", measure);
     };
-  }, []);
+  }, [data.length]);
 
   const layout = useMemo(() => {
     if (data.length === 0) return null;
@@ -121,18 +121,27 @@ export function CandleChart({ data }: { data: CandleChartRow[] }) {
   const { margin, scaleY, cx, bodyW, ticks, xTicks } = layout;
 
   return (
-    <div ref={wrapRef} className="relative h-full min-h-[280px] w-full flex-1">
+    <div ref={wrapRef} className="relative h-full min-h-[280px] w-full min-w-0 flex-1">
       <svg
-        width={size.w}
-        height={size.h}
-        className="block max-w-full"
+        viewBox={`0 0 ${size.w} ${size.h}`}
+        width="100%"
+        height="100%"
+        preserveAspectRatio="xMidYMid meet"
+        className="block h-full w-full min-w-0"
         role="img"
         aria-label="OHLC candlestick chart"
         onMouseLeave={() => setHover(null)}
         onMouseMove={(e) => {
-          const rect = e.currentTarget.getBoundingClientRect();
-          const mx = e.clientX - rect.left;
-          const my = e.clientY - rect.top;
+          const svg = e.currentTarget as SVGSVGElement;
+          const ctm = svg.getScreenCTM();
+          if (!ctm) return;
+          const pt = new DOMPoint(e.clientX, e.clientY).matrixTransform(
+            ctm.inverse()
+          );
+          const mx = pt.x;
+          const rect = svg.getBoundingClientRect();
+          const mxPx = e.clientX - rect.left;
+          const myPx = e.clientY - rect.top;
           const n = data.length;
           const slot = layout.slot;
           const rel = mx - margin.left;
@@ -140,7 +149,7 @@ export function CandleChart({ data }: { data: CandleChartRow[] }) {
             0,
             Math.min(n - 1, Math.floor(rel / slot))
           );
-          setHover({ i, x: mx, y: my });
+          setHover({ i, x: mxPx, y: myPx });
         }}
       >
         <rect x={0} y={0} width={size.w} height={size.h} fill="#12151c" />

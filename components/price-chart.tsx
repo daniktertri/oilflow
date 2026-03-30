@@ -49,7 +49,7 @@ export function PriceChart({ data }: { data: PriceChartRow[] }) {
       ro.disconnect();
       window.removeEventListener("resize", measure);
     };
-  }, []);
+  }, [data.length]);
 
   const layout = useMemo(() => {
     if (data.length === 0) return null;
@@ -139,21 +139,30 @@ export function PriceChart({ data }: { data: PriceChartRow[] }) {
     layout;
 
   return (
-    <div ref={wrapRef} className="relative h-full min-h-[280px] w-full flex-1">
+    <div ref={wrapRef} className="relative h-full min-h-[280px] w-full min-w-0 flex-1">
       <svg
-        width={size.w}
-        height={size.h}
-        className="block max-w-full"
+        viewBox={`0 0 ${size.w} ${size.h}`}
+        width="100%"
+        height="100%"
+        preserveAspectRatio="xMidYMid meet"
+        className="block h-full w-full min-w-0"
         role="img"
         aria-label="Price area chart"
         onMouseLeave={() => setHover(null)}
         onMouseMove={(e) => {
-          const rect = e.currentTarget.getBoundingClientRect();
-          const mx = e.clientX - rect.left;
-          const my = e.clientY - rect.top;
+          const svg = e.currentTarget as SVGSVGElement;
+          const ctm = svg.getScreenCTM();
+          if (!ctm) return;
+          const pt = new DOMPoint(e.clientX, e.clientY).matrixTransform(
+            ctm.inverse()
+          );
+          const mx = pt.x;
+          const rect = svg.getBoundingClientRect();
+          const mxPx = e.clientX - rect.left;
+          const myPx = e.clientY - rect.top;
           const n = pts.length;
           if (n <= 1) {
-            setHover({ i: 0, x: mx, y: my });
+            setHover({ i: 0, x: mxPx, y: myPx });
             return;
           }
           const rel = mx - margin.left;
@@ -161,7 +170,7 @@ export function PriceChart({ data }: { data: PriceChartRow[] }) {
             0,
             Math.min(n - 1, Math.round((rel / innerW) * (n - 1)))
           );
-          setHover({ i, x: mx, y: my });
+          setHover({ i, x: mxPx, y: myPx });
         }}
       >
         <defs>
