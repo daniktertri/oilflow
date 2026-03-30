@@ -141,6 +141,9 @@ CREATE TABLE IF NOT EXISTS telegram_channel_posts (
 CREATE INDEX IF NOT EXISTS telegram_channel_posts_posted_at_idx
   ON telegram_channel_posts (posted_at DESC);
 
+-- Allow multiple concurrent locks per user (drops legacy one-lock-per-user index if present)
+DROP INDEX IF EXISTS liquidity_locks_one_active_per_user;
+
 -- Migrate existing DBs created before lock_yield was added
 ALTER TABLE ledger_entries DROP CONSTRAINT IF EXISTS ledger_entries_kind_check;
 ALTER TABLE ledger_entries ADD CONSTRAINT ledger_entries_kind_check CHECK (

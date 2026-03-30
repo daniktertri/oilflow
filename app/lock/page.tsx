@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import type { ActiveLiquidityLock } from "@/lib/session-trading";
 import { useWallet } from "@/components/wallet-provider";
 
 const DAY_MS = 24 * 60 * 60_000;
@@ -52,7 +53,6 @@ function formatDuration(ms: number) {
   return `${m}:${String(sec).padStart(2, "0")}`;
 }
 
-/** Countdown until unlock — includes days when lock is longer than 24h. */
 function formatUnlockCountdown(ms: number) {
   if (ms <= 0) return "Unlocking…";
   const s = Math.floor(ms / 1000);
@@ -70,6 +70,10 @@ function roiPercent(principal: number, yieldUsd: number): string {
   if (!Number.isFinite(principal) || principal <= 0) return "—";
   const pct = (yieldUsd / principal) * 100;
   return `${pct >= 0 ? "" : "−"}${Math.abs(pct).toFixed(2)}%`;
+}
+
+function shortLockId(lockId: string): string {
+  return lockId.replace(/-/g, "").slice(0, 8);
 }
 
 function LockGlyph({ className }: { className?: string }) {
@@ -90,17 +94,26 @@ function LockGlyph({ className }: { className?: string }) {
   );
 }
 
+function remainingForLock(lock: ActiveLiquidityLock, tickNow: number): number {
+  return Math.max(0, lock.endsAt - tickNow);
+}
+
 export default function LockLiquidityPage() {
   const {
     balance,
     hydrated,
-    activeLock,
-    remainingMs,
+    activeLocks,
+    tickNow,
     startLock,
   } = useWallet();
   const [lockAmount, setLockAmount] = useState("");
   const [lockPresetMs, setLockPresetMs] = useState(LOCK_PRESETS[0].ms);
   const [lockUiError, setLockUiError] = useState<string | null>(null);
+
+  const sortedLocks = useMemo(
+    () => [...activeLocks].sort((a, b) => a.endsAt - b.endsAt),
+    [activeLocks]
+  );
 
   const onStartLock = async () => {
     setLockUiError(null);
@@ -120,8 +133,12 @@ export default function LockLiquidityPage() {
           Lock liquidity
         </h1>
         <p className="mb-6 text-[11px] text-[#5c6578]">
-          Lock USDC for 30, 60, or 90 days. Hourly yield accrues on the server;
-          principal returns at expiry. Need funds?{" "}
+          You can run <strong className="text-[#c8d0e0]">multiple locks</strong> at
+          once (same or different terms). Hourly yield is credited straight to
+          your <strong className="text-[#00c853]">available balance</strong> and
+          can be withdrawn anytime; only the{" "}
+          <strong className="text-[#00e5ff]">principal</strong> stays locked until
+          each position expires. Need funds?{" "}
           <Link href="/balance" className="text-[#00e5ff] hover:underline">
             Balance
           </Link>
@@ -140,175 +157,171 @@ export default function LockLiquidityPage() {
               {hydrated ? formatUsd(balance) : "—"}
             </div>
 
-            {!activeLock ? (
-              <div data-tour="tour-lock-form">
-                <label className="mb-1 block text-[11px] text-[#5c6578]">
-                  Amount (USDC)
-                </label>
-                <input
-                  type="number"
-                  min={10}
-                  step={1}
-                  className="mb-3 min-h-[2.5rem] w-full border border-[#2a3140] bg-[#0c0e12] px-3 py-2 font-mono text-[11px] text-[#c8d0e0] outline-none focus:border-[#ffc107]"
-                  value={lockAmount}
-                  onChange={(e) => setLockAmount(e.target.value)}
-                />
-                <div className="mb-1 text-[11px] text-[#5c6578]">
-                  Lock duration
+            <div data-tour="tour-lock-form">
+              <label className="mb-1 block text-[11px] text-[#5c6578]">
+                New lock — amount (USDC)
+              </label>
+              <input
+                type="number"
+                min={10}
+                step={1}
+                className="mb-3 min-h-[2.5rem] w-full border border-[#2a3140] bg-[#0c0e12] px-3 py-2 font-mono text-[11px] text-[#c8d0e0] outline-none focus:border-[#ffc107]"
+                value={lockAmount}
+                onChange={(e) => setLockAmount(e.target.value)}
+              />
+              <div className="mb-1 text-[11px] text-[#5c6578]">
+                Lock duration
+              </div>
+              <div className="mb-2 grid grid-cols-3 gap-2">
+                {LOCK_PRESETS.map((p) => (
+                  <button
+                    key={p.ms}
+                    type="button"
+                    onClick={() => setLockPresetMs(p.ms)}
+                    className={
+                      lockPresetMs === p.ms
+                        ? "min-h-[2.5rem] border border-[#ffc107] bg-[#0c0e12] px-2 py-2 text-center font-mono text-[11px] leading-tight text-[#ffc107] outline-none"
+                        : "min-h-[2.5rem] border border-[#2a3140] bg-[#0c0e12] px-2 py-2 text-center font-mono text-[11px] leading-tight text-[#c8d0e0] outline-none hover:border-[#ffc107]"
+                    }
+                  >
+                    {p.title}
+                  </button>
+                ))}
+              </div>
+              <div className="mb-3 rounded border border-[#1e2430] bg-[#0a0c10] p-3 text-[11px] leading-relaxed text-[#5c6578]">
+                <div className="mb-2 font-mono text-[10px] uppercase tracking-wider text-[#5c6578]">
+                  Compared
                 </div>
-                <div className="mb-2 grid grid-cols-3 gap-2">
+                <ul className="space-y-2">
                   {LOCK_PRESETS.map((p) => (
-                    <button
+                    <li
                       key={p.ms}
-                      type="button"
-                      onClick={() => setLockPresetMs(p.ms)}
                       className={
-                        lockPresetMs === p.ms
-                          ? "min-h-[2.5rem] border border-[#ffc107] bg-[#0c0e12] px-2 py-2 text-center font-mono text-[11px] leading-tight text-[#ffc107] outline-none"
-                          : "min-h-[2.5rem] border border-[#2a3140] bg-[#0c0e12] px-2 py-2 text-center font-mono text-[11px] leading-tight text-[#c8d0e0] outline-none hover:border-[#ffc107]"
+                        p.guaranteed
+                          ? "border-l-2 border-[#00c853] pl-2"
+                          : "border-l-2 border-[#2a3140] pl-2"
                       }
                     >
-                      {p.title}
-                    </button>
-                  ))}
-                </div>
-                <div className="mb-3 rounded border border-[#1e2430] bg-[#0a0c10] p-3 text-[11px] leading-relaxed text-[#5c6578]">
-                  <div className="mb-2 font-mono text-[10px] uppercase tracking-wider text-[#5c6578]">
-                    Compared
-                  </div>
-                  <ul className="space-y-2">
-                    {LOCK_PRESETS.map((p) => (
-                      <li
-                        key={p.ms}
-                        className={
-                          p.guaranteed
-                            ? "border-l-2 border-[#00c853] pl-2"
-                            : "border-l-2 border-[#2a3140] pl-2"
-                        }
-                      >
-                        <span className="font-mono text-[#c8d0e0]">
-                          {p.title}
+                      <span className="font-mono text-[#c8d0e0]">
+                        {p.title}
+                      </span>
+                      {p.guaranteed ? (
+                        <span className="ml-1.5 rounded border border-[#00c853]/50 bg-[#0d1f14] px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wide text-[#00c853]">
+                          Guaranteed
                         </span>
-                        {p.guaranteed ? (
-                          <span className="ml-1.5 rounded border border-[#00c853]/50 bg-[#0d1f14] px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wide text-[#00c853]">
-                            Guaranteed
-                          </span>
-                        ) : null}
-                        <span className="mt-0.5 block">— {p.line}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => void onStartLock()}
-                  className="mb-2 min-h-[2.75rem] w-full border border-[#00c853] bg-[#0d1f14] py-2.5 text-[11px] font-mono uppercase text-[#00c853] hover:bg-[#122018]"
-                >
-                  Lock &amp; run
-                </button>
-                {lockUiError && (
-                  <p className="mb-2 text-[11px] text-[#ff5252]">{lockUiError}</p>
-                )}
-                <p className="text-[11px] leading-relaxed text-[#5c6578]">
-                  Locked funds earn hourly yield on the server (random between
-                  0.039% and 0.05% of principal per hour). See executed trades on
-                  the dashboard.
-                </p>
+                      ) : null}
+                      <span className="mt-0.5 block">— {p.line}</span>
+                    </li>
+                  ))}
+                </ul>
               </div>
-            ) : (
-              <div data-tour="tour-lock-form" className="space-y-2 text-[11px]">
-                <p className="leading-relaxed text-[#5c6578]">
-                  Yield credits to your available balance each hour while the lock
-                  is active; principal returns at expiry. Details on the right.
-                </p>
-              </div>
-            )}
+              <button
+                type="button"
+                onClick={() => void onStartLock()}
+                className="mb-2 min-h-[2.75rem] w-full border border-[#00c853] bg-[#0d1f14] py-2.5 text-[11px] font-mono uppercase text-[#00c853] hover:bg-[#122018]"
+              >
+                Add lock
+              </button>
+              {lockUiError && (
+                <p className="mb-2 text-[11px] text-[#ff5252]">{lockUiError}</p>
+              )}
+              <p className="text-[11px] leading-relaxed text-[#5c6578]">
+                Hourly yield (about 0.039%–0.05% of that position&apos;s principal
+                per hour) lands in available USDC as it accrues. Synthetic trades
+                and charts:{" "}
+                <Link href="/dashboard" className="text-[#00e5ff] hover:underline">
+                  Dashboard
+                </Link>
+                .
+              </p>
+            </div>
           </section>
 
           <section className="rounded border border-[#1e2430] bg-[#12151c] p-5">
-            {activeLock ? (
-              <div className="space-y-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-center gap-2.5">
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded border border-[#ffc107]/40 bg-[#1a1608] text-[#ffc107]">
-                      <LockGlyph />
-                    </span>
-                    <div>
-                      <div className="font-mono text-[11px] uppercase tracking-wider text-[#5c6578]">
-                        Locked position
-                      </div>
-                      <div className="font-mono text-[13px] text-[#c8d0e0]">
-                        {formatUsd(activeLock.principalUsd)} principal
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="rounded border border-[#1e2430] bg-[#0c0e12] px-4 py-3">
-                  <div className="mb-1 text-[10px] uppercase tracking-wider text-[#5c6578]">
-                    Unlocks in
-                  </div>
-                  <div className="font-mono text-xl tabular-nums text-[#00e5ff]">
-                    {formatUnlockCountdown(remainingMs)}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="rounded border border-[#1e2430] bg-[#0c0e12] px-3 py-2.5">
-                    <div className="mb-0.5 text-[10px] uppercase tracking-wider text-[#5c6578]">
-                      Locked P&amp;L
-                    </div>
-                    <div
-                      className={`font-mono text-lg ${
-                        activeLock.accumulatedYieldUsd >= 0
-                          ? "text-[#00c853]"
-                          : "text-[#ff5252]"
-                      }`}
-                    >
-                      {formatUsd(activeLock.accumulatedYieldUsd)}
-                    </div>
-                  </div>
-                  <div className="rounded border border-[#1e2430] bg-[#0c0e12] px-3 py-2.5">
-                    <div className="mb-0.5 text-[10px] uppercase tracking-wider text-[#5c6578]">
-                      ROI (this lock)
-                    </div>
-                    <div
-                      className={`font-mono text-lg ${
-                        activeLock.accumulatedYieldUsd >= 0
-                          ? "text-[#00c853]"
-                          : "text-[#ff5252]"
-                      }`}
-                    >
-                      {roiPercent(
-                        activeLock.principalUsd,
-                        activeLock.accumulatedYieldUsd
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                <p className="text-[10px] leading-relaxed text-[#5c6578]">
-                  ROI is yield earned so far vs this lock&apos;s principal. Per-trade
-                  history and daily chart:{" "}
-                  <Link
-                    href="/dashboard"
-                    className="text-[#00e5ff] hover:underline"
-                  >
-                    Dashboard
-                  </Link>
-                  .
-                </p>
-              </div>
-            ) : (
+            <div className="mb-3 text-[11px] uppercase tracking-wider text-[#5c6578]">
+              Active locks ({activeLocks.length})
+            </div>
+            {sortedLocks.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-8 text-center">
                 <span className="mb-3 flex h-12 w-12 items-center justify-center rounded-full border border-dashed border-[#2a3140] text-[#3d4555]">
                   <LockGlyph className="h-6 w-6" />
                 </span>
-                <p className="max-w-[240px] text-[11px] leading-relaxed text-[#5c6578]">
-                  No active lock. Start one on the left — this panel will show
-                  countdown, P&amp;L, and ROI for that position.
+                <p className="max-w-[260px] text-[11px] leading-relaxed text-[#5c6578]">
+                  No positions yet. Add a lock on the left — each one gets its own
+                  countdown, P&amp;L, and ROI.
                 </p>
               </div>
+            ) : (
+              <ul className="max-h-[min(70vh,520px)] space-y-4 overflow-y-auto pr-1">
+                {sortedLocks.map((lock) => {
+                  const rem = remainingForLock(lock, tickNow);
+                  return (
+                    <li
+                      key={lock.lockId}
+                      className="rounded border border-[#1e2430] bg-[#0c0e12] p-4"
+                    >
+                      <div className="mb-3 flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded border border-[#ffc107]/40 bg-[#1a1608] text-[#ffc107]">
+                            <LockGlyph />
+                          </span>
+                          <div className="min-w-0">
+                            <div className="font-mono text-[10px] uppercase tracking-wider text-[#5c6578]">
+                              Lock · {shortLockId(lock.lockId)}
+                            </div>
+                            <div className="truncate font-mono text-[13px] text-[#c8d0e0]">
+                              {formatUsd(lock.principalUsd)} principal
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="mb-3 rounded border border-[#1e2430] bg-[#12151c] px-3 py-2">
+                        <div className="mb-0.5 text-[10px] uppercase tracking-wider text-[#5c6578]">
+                          Unlocks in
+                        </div>
+                        <div className="font-mono text-lg tabular-nums text-[#00e5ff]">
+                          {formatUnlockCountdown(rem)}
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="rounded border border-[#1e2430] bg-[#12151c] px-2 py-2">
+                          <div className="mb-0.5 text-[10px] uppercase tracking-wider text-[#5c6578]">
+                            Locked P&amp;L
+                          </div>
+                          <div
+                            className={`font-mono text-[15px] ${
+                              lock.accumulatedYieldUsd >= 0
+                                ? "text-[#00c853]"
+                                : "text-[#ff5252]"
+                            }`}
+                          >
+                            {formatUsd(lock.accumulatedYieldUsd)}
+                          </div>
+                        </div>
+                        <div className="rounded border border-[#1e2430] bg-[#12151c] px-2 py-2">
+                          <div className="mb-0.5 text-[10px] uppercase tracking-wider text-[#5c6578]">
+                            ROI (this lock)
+                          </div>
+                          <div
+                            className={`font-mono text-[15px] ${
+                              lock.accumulatedYieldUsd >= 0
+                                ? "text-[#00c853]"
+                                : "text-[#ff5252]"
+                            }`}
+                          >
+                            {roiPercent(
+                              lock.principalUsd,
+                              lock.accumulatedYieldUsd
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
             )}
           </section>
         </div>

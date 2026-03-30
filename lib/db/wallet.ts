@@ -172,7 +172,7 @@ export type LiquidityLockRow = {
 
 /**
  * Debit available USDC, lock_in ledger, insert active liquidity_locks row.
- * Fails if user already has an active lock or insufficient balance.
+ * Multiple concurrent locks per user are allowed (different amounts/durations).
  */
 export async function lockInWithSession(
   sql: Sql,
@@ -202,11 +202,6 @@ export async function lockInWithSession(
       SET usdc_available = ab.usdc_available - ${amountUsd}
       WHERE ab.user_id = ${userId}::uuid
         AND ab.usdc_available >= ${amountUsd}
-        AND NOT EXISTS (
-          SELECT 1
-          FROM liquidity_locks ll
-          WHERE ll.user_id = ab.user_id AND ll.status = 'active'
-        )
       RETURNING ab.usdc_available::float8 AS b
     ),
     ins_ledger AS (
@@ -270,7 +265,7 @@ export async function lockInWithSession(
   if (!row?.balance_after || row.id == null) {
     return {
       ok: false,
-      error: "Insufficient USDC balance or a lock is already active.",
+      error: "Insufficient USDC balance.",
     };
   }
   return {
@@ -286,11 +281,11 @@ export async function lockInWithSession(
   };
 }
 
-export async function getActiveLiquidityLock(
+export async function getActiveLiquidityLocks(
   sql: Sql,
   userId: string
-): Promise<LiquidityLockRow | null> {
-  const rows = (await sql`
+): Promise<LiquidityLockRow[]> {
+  return (await sql`
     SELECT
       id::text AS id,
       principal_usd::text AS principal_usd,
@@ -300,18 +295,19 @@ export async function getActiveLiquidityLock(
       status
     FROM liquidity_locks
     WHERE user_id = ${userId}::uuid AND status = 'active'
-    LIMIT 1
+    ORDER BY ends_at ASC
   `) as LiquidityLockRow[];
-  return rows[0] ?? null;
 }
 
 /**
- * Return principal to available balance; yield was already credited via lock_yield.
- * Only when lock is active and ends_at <= now().
+ * Return principal to available balance; hourly yield was already credited to
+ * `usdc_available` via lock_yield (withdrawable immediately).
+ * Only when this lock is active and ends_at <= now().
  */
-export async function settleActiveLockPrincipalOnly(
+export async function settleLockById(
   sql: Sql,
-  userId: string
+  userId: string,
+  lockId: string
 ): Promise<
   { ok: true; balanceAfter: number; principalUsd: number } | { ok: false; error: string }
 > {
@@ -321,6 +317,7 @@ export async function settleActiveLockPrincipalOnly(
       FROM liquidity_locks
       WHERE
         user_id = ${userId}::uuid
+        AND id = ${lockId}::uuid
         AND status = 'active'
         AND ends_at <= now()
       LIMIT 1
@@ -366,12 +363,69 @@ export async function settleActiveLockPrincipalOnly(
 
   const row = rows[0];
   if (!row) {
-    return { ok: false, error: "No lock ready to settle or already settled." };
+    return {
+      ok: false,
+      error: "No matching lock to settle, not expired yet, or already settled.",
+    };
   }
   return {
     ok: true,
     balanceAfter: row.balance_after,
     principalUsd: row.principal_usd,
+  };
+}
+
+/**
+ * Settle every expired active lock for this user (principal back to available balance).
+ */
+export async function settleAllExpiredLocksForUser(
+  sql: Sql,
+  userId: string
+): Promise<
+  | {
+      ok: true;
+      balanceAfter: number;
+      settledCount: number;
+      totalPrincipalSettled: number;
+    }
+  | { ok: false; error: string }
+> {
+  const idRows = (await sql`
+    SELECT id::text AS id
+    FROM liquidity_locks
+    WHERE
+      user_id = ${userId}::uuid
+      AND status = 'active'
+      AND ends_at <= now()
+    ORDER BY ends_at ASC
+  `) as { id: string }[];
+
+  if (idRows.length === 0) {
+    const bal = await getUsdcAvailable(sql, userId);
+    return {
+      ok: true,
+      balanceAfter: Number(bal),
+      settledCount: 0,
+      totalPrincipalSettled: 0,
+    };
+  }
+
+  let totalPrincipal = 0;
+  let lastBalance = 0;
+  for (const { id } of idRows) {
+    const r = await settleLockById(sql, userId, id);
+    if (!r.ok) {
+      return { ok: false, error: r.error };
+    }
+    totalPrincipal += r.principalUsd;
+    lastBalance = r.balanceAfter;
+  }
+
+  return {
+    ok: true,
+    balanceAfter: lastBalance,
+    settledCount: idRows.length,
+    totalPrincipalSettled: totalPrincipal,
   };
 }
 
@@ -435,19 +489,18 @@ export type ActiveLockForApi = {
   endsAt: string;
 };
 
-export async function getActiveLockForApi(
+export async function getActiveLocksForApi(
   sql: Sql,
   userId: string
-): Promise<ActiveLockForApi | null> {
-  const row = await getActiveLiquidityLock(sql, userId);
-  if (!row) return null;
-  return {
+): Promise<ActiveLockForApi[]> {
+  const rows = await getActiveLiquidityLocks(sql, userId);
+  return rows.map((row) => ({
     id: row.id,
     principalUsd: Number(row.principal_usd),
     accumulatedYieldUsd: Number(row.accumulated_yield_usd),
     startedAt: row.started_at,
     endsAt: row.ends_at,
-  };
+  }));
 }
 
 export type LockYieldCandidate = {

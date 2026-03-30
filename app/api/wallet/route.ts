@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import {
   ensureAccountBalanceRow,
-  getActiveLockForApi,
+  getActiveLocksForApi,
   getSolWallet,
   getUsdcAvailable,
   listRecentLedger,
@@ -30,12 +30,12 @@ export async function GET() {
   const wallet = await getSolWallet(sql, userId);
   const balanceStr = await getUsdcAvailable(sql, userId);
   const ledger = await listRecentLedger(sql, userId, 100);
-  const activeLock = await getActiveLockForApi(sql, userId);
+  const activeLocks = await getActiveLocksForApi(sql, userId);
 
   return NextResponse.json({
     depositPubkey: wallet?.pubkey ?? null,
     usdcAvailable: Number(balanceStr),
-    activeLock,
+    activeLocks,
     ledger: ledger.map((row) => ({
       id: row.id,
       kind: row.kind,

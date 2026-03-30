@@ -16,9 +16,13 @@ import { useTelegramAuth } from "@/components/telegram-auth-provider";
 type WalletCtx = {
   balance: number;
   hydrated: boolean;
-  activeLock: ActiveLiquidityLock | null;
-  tickNow: number;
+  /** All active liquidity locks (server). */
+  activeLocks: ActiveLiquidityLock[];
+  /** Sum of principal still locked across positions. */
+  totalLockedPrincipalUsd: number;
+  /** Milliseconds until the soonest lock ends (0 if none). */
   remainingMs: number;
+  tickNow: number;
   recentLedger: WalletLedgerEntry[];
   depositPubkey: string | null;
   refreshWallet: () => Promise<void>;
@@ -74,23 +78,30 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   const { user } = useTelegramAuth();
   const [balance, setBalance] = useState(0);
   const [hydrated, setHydrated] = useState(false);
-  const [activeLock, setActiveLock] = useState<ActiveLiquidityLock | null>(
-    null
-  );
+  const [activeLocks, setActiveLocks] = useState<ActiveLiquidityLock[]>([]);
   const [tickNow, setTickNow] = useState(Date.now());
   const [recentLedger, setRecentLedger] = useState<WalletLedgerEntry[]>([]);
   const [depositPubkey, setDepositPubkey] = useState<string | null>(null);
 
-  const lockRef = useRef<ActiveLiquidityLock | null>(null);
-  lockRef.current = activeLock;
-  const settledEndsAtRef = useRef<number | null>(null);
+  const settleInFlight = useRef(false);
+
+  const totalLockedPrincipalUsd = useMemo(
+    () => activeLocks.reduce((s, l) => s + l.principalUsd, 0),
+    [activeLocks]
+  );
+
+  const remainingMs = useMemo(() => {
+    if (activeLocks.length === 0) return 0;
+    const soonest = Math.min(...activeLocks.map((l) => l.endsAt));
+    return Math.max(0, soonest - tickNow);
+  }, [activeLocks, tickNow]);
 
   const refreshWallet = useCallback(async () => {
     if (!user?.id) {
       setBalance(0);
       setRecentLedger([]);
       setDepositPubkey(null);
-      setActiveLock(null);
+      setActiveLocks([]);
       return;
     }
     try {
@@ -98,7 +109,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       if (!res.ok) return;
       const data = (await res.json()) as {
         usdcAvailable: number;
-        activeLock: ApiActiveLock | null;
+        activeLocks: ApiActiveLock[];
         ledger: {
           id: string;
           kind: string;
@@ -111,11 +122,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       setBalance(data.usdcAvailable);
       setRecentLedger(mapServerLedger(data.ledger));
       setDepositPubkey(data.depositPubkey);
-      if (data.activeLock) {
-        setActiveLock(mapActiveLock(data.activeLock));
-      } else {
-        setActiveLock(null);
-      }
+      setActiveLocks((data.activeLocks ?? []).map(mapActiveLock));
     } catch {
       /* ignore */
     }
@@ -147,8 +154,10 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     return () => window.clearInterval(id);
   }, []);
 
-  const settleLockOnServer = useCallback(async () => {
+  const settleExpiredLocksOnServer = useCallback(async () => {
     if (!user?.id) return;
+    if (settleInFlight.current) return;
+    settleInFlight.current = true;
     try {
       const res = await fetch("/api/wallet/lock-settle", {
         method: "POST",
@@ -156,37 +165,31 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       const data = (await res.json()) as {
         ok?: boolean;
         balanceAfter?: number;
+        settledCount?: number;
         error?: string;
       };
       if (!res.ok) {
         console.error("[wallet] lock-settle", data.error);
-        settledEndsAtRef.current = null;
         return;
       }
       if (typeof data.balanceAfter === "number") {
         setBalance(data.balanceAfter);
       }
       await refreshWallet();
-      setActiveLock(null);
       saveLock(null);
     } catch (e) {
       console.error("[wallet] lock-settle", e);
-      settledEndsAtRef.current = null;
+    } finally {
+      settleInFlight.current = false;
     }
   }, [user?.id, refreshWallet]);
 
   useEffect(() => {
     if (!user?.id || !hydrated) return;
-    const L = lockRef.current;
-    if (!L) {
-      settledEndsAtRef.current = null;
-      return;
-    }
-    if (tickNow < L.endsAt) return;
-    if (settledEndsAtRef.current === L.endsAt) return;
-    settledEndsAtRef.current = L.endsAt;
-    void settleLockOnServer();
-  }, [tickNow, activeLock, user?.id, hydrated, settleLockOnServer]);
+    const hasExpired = activeLocks.some((L) => tickNow >= L.endsAt);
+    if (!hasExpired) return;
+    void settleExpiredLocksOnServer();
+  }, [tickNow, activeLocks, user?.id, hydrated, settleExpiredLocksOnServer]);
 
   const withdrawUsd = useCallback(
     async (
@@ -239,9 +242,6 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       if (amountUsd > balance) {
         return { ok: false, error: "Insufficient USDC balance." };
       }
-      if (activeLock) {
-        return { ok: false, error: "A liquidity lock is already active." };
-      }
       try {
         const lockRes = await fetch("/api/wallet/lock-in", {
           method: "POST",
@@ -259,11 +259,6 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         if (typeof lockData.balanceAfter === "number") {
           setBalance(lockData.balanceAfter);
         }
-        if (lockData.lock) {
-          setActiveLock(mapActiveLock(lockData.lock));
-        } else {
-          await refreshWallet();
-        }
         await refreshWallet();
         return { ok: true };
       } catch (e) {
@@ -273,20 +268,17 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         };
       }
     },
-    [user?.id, balance, activeLock, refreshWallet]
+    [user?.id, balance, refreshWallet]
   );
-
-  const remainingMs = activeLock
-    ? Math.max(0, activeLock.endsAt - tickNow)
-    : 0;
 
   const value = useMemo(
     () => ({
       balance,
       hydrated,
-      activeLock,
-      tickNow,
+      activeLocks,
+      totalLockedPrincipalUsd,
       remainingMs,
+      tickNow,
       recentLedger,
       depositPubkey,
       refreshWallet,
@@ -296,9 +288,10 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     [
       balance,
       hydrated,
-      activeLock,
-      tickNow,
+      activeLocks,
+      totalLockedPrincipalUsd,
       remainingMs,
+      tickNow,
       recentLedger,
       depositPubkey,
       refreshWallet,

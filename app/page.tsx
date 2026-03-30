@@ -51,7 +51,13 @@ type AssetCtx = {
 type ChartView = "area" | "candles";
 
 export default function OilTradePage() {
-  const { balance, hydrated, activeLock, remainingMs } = useWallet();
+  const {
+    balance,
+    hydrated,
+    activeLocks,
+    totalLockedPrincipalUsd,
+    remainingMs,
+  } = useWallet();
   const [chartInterval, setChartInterval] = useState<HlChartInterval>("1h");
   const [chartView, setChartView] = useState<ChartView>("area");
   const [rawCandles, setRawCandles] = useState<HlCandle[]>([]);
@@ -237,12 +243,15 @@ export default function OilTradePage() {
               {hydrated ? formatUsd(balance) : "—"}
             </span>
           </Link>
-          {activeLock && (
+          {activeLocks.length > 0 && (
             <span className="text-[#5c6578]">
               LOCKED{" "}
               <span className="text-[#00e5ff]">
-                {formatUsd(activeLock.principalUsd)}
+                {formatUsd(totalLockedPrincipalUsd)}
               </span>
+              {activeLocks.length > 1 ? (
+                <span className="text-[#5c6578]"> ({activeLocks.length})</span>
+              ) : null}
             </span>
           )}
           <span className="text-[#5c6578]">UTC {clock}</span>
@@ -281,8 +290,9 @@ export default function OilTradePage() {
               color: "text-[#c8d0e0]",
             },
             {
-              label: "LOCK TIME LEFT",
-              value: activeLock ? formatDuration(remainingMs) : "—",
+              label: "SOONEST UNLOCK",
+              value:
+                activeLocks.length > 0 ? formatDuration(remainingMs) : "—",
               color: "text-[#00e5ff]",
             },
           ].map((m) => (

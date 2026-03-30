@@ -47,7 +47,13 @@ function liquidityLabel(src: string): string {
 }
 
 export default function DashboardPage() {
-  const { balance, hydrated, activeLock, remainingMs } = useWallet();
+  const {
+    balance,
+    hydrated,
+    activeLocks,
+    totalLockedPrincipalUsd,
+    remainingMs,
+  } = useWallet();
   const [dailyRows, setDailyRows] = useState<DailyPnlRow[]>([]);
   const [trades, setTrades] = useState<LockTradeRow[]>([]);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -81,7 +87,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     void loadDashboard();
-  }, [loadDashboard, hydrated, activeLock]);
+  }, [loadDashboard, hydrated, activeLocks]);
 
   useEffect(() => {
     const id = window.setInterval(() => {
@@ -94,8 +100,11 @@ export default function DashboardPage() {
   const todayRealized = dailyRows.find((r) => r.date === tk)?.pnlUsd ?? 0;
   const totalRealized = useMemo(() => sumRealizedPnl(dailyRows), [dailyRows]);
 
-  const openYield = activeLock?.accumulatedYieldUsd ?? 0;
-  const lockedPrincipal = activeLock?.principalUsd ?? 0;
+  const totalYieldAcrossLocks = useMemo(
+    () => activeLocks.reduce((s, l) => s + l.accumulatedYieldUsd, 0),
+    [activeLocks]
+  );
+  const hasLocks = activeLocks.length > 0;
 
   return (
     <div className="min-h-screen bg-[#0c0e12] text-[#c8d0e0]">
@@ -104,7 +113,8 @@ export default function DashboardPage() {
           Dashboard
         </h1>
         <p className="mb-6 text-[11px] text-[#5c6578]">
-          Lock yield, hourly synthetic trades, and daily P&amp;L (UTC).{" "}
+          Hourly yield credits to your available balance (withdrawable). Lock
+          yield, synthetic trades, and daily P&amp;L (UTC).{" "}
           <Link href="/lock" className="text-[#00e5ff] hover:underline">
             Lock liquidity
           </Link>{" "}
@@ -132,23 +142,25 @@ export default function DashboardPage() {
             },
             {
               label: "Locked principal",
-              value: activeLock ? formatUsd(lockedPrincipal) : "—",
-              sub: activeLock ? "In active lock" : "No active lock",
+              value: hasLocks ? formatUsd(totalLockedPrincipalUsd) : "—",
+              sub: hasLocks
+                ? `${activeLocks.length} active lock${activeLocks.length === 1 ? "" : "s"}`
+                : "No active locks",
               color: "text-[#00e5ff]",
             },
             {
               label: "Accumulated yield",
-              value: activeLock ? formatUsd(openYield) : "—",
-              sub: activeLock ? "This lock (server)" : "Start a lock to earn",
+              value: hasLocks ? formatUsd(totalYieldAcrossLocks) : "—",
+              sub: hasLocks ? "Sum across your locks (server)" : "Start a lock to earn",
               color:
-                !activeLock || openYield >= 0
+                !hasLocks || totalYieldAcrossLocks >= 0
                   ? "text-[#00c853]"
                   : "text-[#ff5252]",
             },
             {
-              label: "Time left",
-              value: activeLock ? formatDuration(remainingMs) : "—",
-              sub: activeLock ? "Current lock" : "—",
+              label: "Soonest unlock",
+              value: hasLocks ? formatDuration(remainingMs) : "—",
+              sub: hasLocks ? "Shortest time left" : "—",
               color: "text-[#ffc107]",
             },
           ].map((c) => (
