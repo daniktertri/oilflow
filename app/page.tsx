@@ -327,33 +327,49 @@ export default function OilTradePage() {
             data-tour="tour-chart-controls"
             className="flex flex-wrap items-end gap-3 border-b border-[#1e2430] px-4 py-2.5"
           >
-            <label className="text-[12px] uppercase tracking-wider text-[#5c6578]">
+            <span className="text-[12px] uppercase tracking-wider text-[#5c6578]">
               View
-            </label>
-            <select
-              className="min-h-[2.5rem] min-w-[7rem] border border-[#2a3140] bg-[#0c0e12] px-3 py-2 font-mono text-[12px] text-[#c8d0e0] outline-none focus:border-[#ffc107]"
-              value={chartView}
-              onChange={(e) => setChartView(e.target.value as ChartView)}
-            >
-              <option value="area">Area (last)</option>
-              <option value="candles">Candles (OHLC)</option>
-            </select>
-            <label className="text-[12px] uppercase tracking-wider text-[#5c6578]">
-              Interval
-            </label>
-            <select
-              className="min-h-[2.5rem] min-w-[5.5rem] border border-[#2a3140] bg-[#0c0e12] px-3 py-2 font-mono text-[12px] text-[#c8d0e0] outline-none focus:border-[#ffc107]"
-              value={chartInterval}
-              onChange={(e) =>
-                setChartInterval(e.target.value as HlChartInterval)
-              }
-            >
-              {HL_CHART_INTERVALS.map((iv) => (
-                <option key={iv} value={iv}>
-                  {iv}
-                </option>
+            </span>
+            <div className="flex flex-wrap gap-1">
+              {(
+                [
+                  { id: "area" as const, label: "Area (last)" },
+                  { id: "candles" as const, label: "Candles (OHLC)" },
+                ] as const
+              ).map((opt) => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => setChartView(opt.id)}
+                  className={
+                    chartView === opt.id
+                      ? "min-h-[2.5rem] border border-[#ffc107] bg-[#0c0e12] px-3 py-2 font-mono text-[12px] text-[#ffc107] outline-none"
+                      : "min-h-[2.5rem] border border-[#2a3140] bg-[#0c0e12] px-3 py-2 font-mono text-[12px] text-[#c8d0e0] outline-none hover:border-[#ffc107]"
+                  }
+                >
+                  {opt.label}
+                </button>
               ))}
-            </select>
+            </div>
+            <span className="text-[12px] uppercase tracking-wider text-[#5c6578]">
+              Interval
+            </span>
+            <div className="flex flex-wrap gap-1">
+              {HL_CHART_INTERVALS.map((iv) => (
+                <button
+                  key={iv}
+                  type="button"
+                  onClick={() => setChartInterval(iv)}
+                  className={
+                    chartInterval === iv
+                      ? "min-h-[2.5rem] min-w-[2.75rem] border border-[#ffc107] bg-[#0c0e12] px-2.5 py-2 font-mono text-[12px] text-[#ffc107] outline-none"
+                      : "min-h-[2.5rem] min-w-[2.75rem] border border-[#2a3140] bg-[#0c0e12] px-2.5 py-2 font-mono text-[12px] text-[#c8d0e0] outline-none hover:border-[#ffc107]"
+                  }
+                >
+                  {iv}
+                </button>
+              ))}
+            </div>
             <button
               type="button"
               onClick={() => setRefresh((n) => n + 1)}

@@ -4,13 +4,34 @@ import Link from "next/link";
 import { useState } from "react";
 import { useWallet } from "@/components/wallet-provider";
 
-const LOCK_PRESETS: { label: string; ms: number }[] = [
-  { label: "15 min", ms: 15 * 60_000 },
-  { label: "1 hour", ms: 60 * 60_000 },
-  { label: "4 hours", ms: 4 * 60 * 60_000 },
-  { label: "1 day", ms: 24 * 60 * 60_000 },
-  { label: "7 days", ms: 7 * 24 * 60 * 60_000 },
-];
+const DAY_MS = 24 * 60 * 60_000;
+
+const LOCK_PRESETS = [
+  {
+    days: 30,
+    ms: 30 * DAY_MS,
+    title: "30 days",
+    guaranteed: false,
+    line:
+      "Standard lock. Automated execution for the window; principal and session P&L return at expiry.",
+  },
+  {
+    days: 60,
+    ms: 60 * DAY_MS,
+    title: "60 days",
+    guaranteed: false,
+    line:
+      "Longer runway for the same execution cadence. Same unlock rules at the end of the period.",
+  },
+  {
+    days: 90,
+    ms: 90 * DAY_MS,
+    title: "90 days",
+    line:
+      "Maximum term. Locked principal is guaranteed for the full lock period.",
+    guaranteed: true,
+  },
+] as const;
 
 function formatUsd(n: number) {
   return new Intl.NumberFormat("en-US", {
@@ -40,7 +61,7 @@ export default function LockLiquidityPage() {
     startLock,
   } = useWallet();
   const [lockAmount, setLockAmount] = useState("");
-  const [lockPresetMs, setLockPresetMs] = useState(LOCK_PRESETS[1].ms);
+  const [lockPresetMs, setLockPresetMs] = useState(LOCK_PRESETS[0].ms);
   const [lockUiError, setLockUiError] = useState<string | null>(null);
 
   const onStartLock = async () => {
@@ -61,9 +82,9 @@ export default function LockLiquidityPage() {
           Lock liquidity
         </h1>
         <p className="mb-6 text-[11px] text-[#5c6578]">
-          Lock USDC for a window to run automated execution on WTIOIL-USDC. One
-          fill per minute while active. Principal and session P&amp;L return at
-          expiry. Need funds?{" "}
+          Lock USDC for 30, 60, or 90 days to run automated execution on
+          WTIOIL-USDC. One fill per minute while active. Principal and session
+          P&amp;L return at expiry. Need funds?{" "}
           <Link href="/balance" className="text-[#00e5ff] hover:underline">
             Balance
           </Link>
@@ -95,20 +116,52 @@ export default function LockLiquidityPage() {
                   value={lockAmount}
                   onChange={(e) => setLockAmount(e.target.value)}
                 />
-                <label className="mb-1 block text-[11px] text-[#5c6578]">
+                <div className="mb-1 text-[11px] text-[#5c6578]">
                   Lock duration
-                </label>
-                <select
-                  className="mb-3 min-h-[2.5rem] w-full border border-[#2a3140] bg-[#0c0e12] px-3 py-2 font-mono text-[11px] text-[#c8d0e0] outline-none focus:border-[#ffc107]"
-                  value={lockPresetMs}
-                  onChange={(e) => setLockPresetMs(Number(e.target.value))}
-                >
+                </div>
+                <div className="mb-2 grid grid-cols-3 gap-2">
                   {LOCK_PRESETS.map((p) => (
-                    <option key={p.ms} value={p.ms}>
-                      {p.label}
-                    </option>
+                    <button
+                      key={p.ms}
+                      type="button"
+                      onClick={() => setLockPresetMs(p.ms)}
+                      className={
+                        lockPresetMs === p.ms
+                          ? "min-h-[2.5rem] border border-[#ffc107] bg-[#0c0e12] px-2 py-2 text-center font-mono text-[11px] leading-tight text-[#ffc107] outline-none"
+                          : "min-h-[2.5rem] border border-[#2a3140] bg-[#0c0e12] px-2 py-2 text-center font-mono text-[11px] leading-tight text-[#c8d0e0] outline-none hover:border-[#ffc107]"
+                      }
+                    >
+                      {p.title}
+                    </button>
                   ))}
-                </select>
+                </div>
+                <div className="mb-3 rounded border border-[#1e2430] bg-[#0a0c10] p-3 text-[11px] leading-relaxed text-[#5c6578]">
+                  <div className="mb-2 font-mono text-[10px] uppercase tracking-wider text-[#5c6578]">
+                    Compared
+                  </div>
+                  <ul className="space-y-2">
+                    {LOCK_PRESETS.map((p) => (
+                      <li
+                        key={p.ms}
+                        className={
+                          p.guaranteed
+                            ? "border-l-2 border-[#00c853] pl-2"
+                            : "border-l-2 border-[#2a3140] pl-2"
+                        }
+                      >
+                        <span className="font-mono text-[#c8d0e0]">
+                          {p.title}
+                        </span>
+                        {p.guaranteed ? (
+                          <span className="ml-1.5 rounded border border-[#00c853]/50 bg-[#0d1f14] px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wide text-[#00c853]">
+                            Guaranteed
+                          </span>
+                        ) : null}
+                        <span className="mt-0.5 block">— {p.line}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
                 <button
                   type="button"
                   onClick={() => void onStartLock()}

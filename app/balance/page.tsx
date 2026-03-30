@@ -353,7 +353,7 @@ export default function BalancePage() {
                 min={0}
                 step="0.01"
                 placeholder="Amount (USDC)"
-                className="min-h-[2.75rem] min-w-0 flex-1 border border-[#2a3140] bg-[#0c0e12] px-3 py-2.5 font-mono text-[11px] text-[#c8d0e0] outline-none [appearance:textfield] focus:border-[#ffc107] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                className="min-h-[2.75rem] min-w-0 flex-1 border border-[#2a3140] bg-[#0c0e12] px-3 py-2.5 font-mono text-[11px] text-[#c8d0e0] outline-none focus:border-[#ffc107]"
                 value={withdrawAmount}
                 onChange={(e) => setWithdrawAmount(e.target.value)}
                 disabled={!user || withdrawBusy}
