@@ -50,6 +50,19 @@ type AssetCtx = {
 
 type ChartView = "area" | "candles";
 
+type PlatformStats = {
+  userCount: number;
+  totalEarningsUsd: number;
+  totalLockedUsd: number;
+  mtdEarningsUsd: number;
+  mtdRoiPct: number | null;
+};
+
+function formatPct(n: number) {
+  const sign = n >= 0 ? "+" : "";
+  return `${sign}${n.toFixed(2)}%`;
+}
+
 export default function OilTradePage() {
   const {
     balance,
@@ -69,6 +82,10 @@ export default function OilTradePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refresh, setRefresh] = useState(0);
+  const [platformStats, setPlatformStats] = useState<PlatformStats | null>(
+    null
+  );
+  const [platformStatsLoading, setPlatformStatsLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -155,6 +172,32 @@ export default function OilTradePage() {
     setClock(nowClock());
     const id = window.setInterval(() => setClock(nowClock()), 1000);
     return () => clearInterval(id);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(
+          sameOriginApi("/api/stats/platform", new URLSearchParams()),
+          { cache: "no-store" }
+        );
+        const data = (await res.json()) as PlatformStats & { error?: string };
+        if (cancelled) return;
+        if (!res.ok || typeof data.userCount !== "number") {
+          setPlatformStats(null);
+          return;
+        }
+        setPlatformStats(data);
+      } catch {
+        if (!cancelled) setPlatformStats(null);
+      } finally {
+        if (!cancelled) setPlatformStatsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const chartData: PriceChartRow[] = useMemo(() => {
@@ -257,6 +300,88 @@ export default function OilTradePage() {
           <span className="text-[#5c6578]">UTC {clock}</span>
         </div>
       </header>
+
+      <section
+        aria-label="Platform community stats"
+        className="border-b border-[#1e2430] bg-[#0a0c10] px-4 py-3"
+      >
+        <div className="mb-2 text-[11px] uppercase tracking-wider text-[#5c6578]">
+          Platform · all users (UTC)
+        </div>
+        <div className="grid grid-cols-2 gap-px bg-[#1e2430] lg:grid-cols-4">
+          {(
+            [
+              {
+                label: "REGISTERED USERS",
+                value: platformStatsLoading
+                  ? "—"
+                  : platformStats != null
+                    ? String(platformStats.userCount)
+                    : "—",
+                sub: null as string | null,
+                color: "text-[#c8d0e0]",
+              },
+              {
+                label: "ALL-TIME EARNED",
+                value:
+                  platformStatsLoading || platformStats == null
+                    ? "—"
+                    : formatUsd(platformStats.totalEarningsUsd),
+                sub: null,
+                color:
+                  platformStats != null &&
+                  platformStats.totalEarningsUsd >= 0
+                    ? "text-[#00c853]"
+                    : "text-[#ff5252]",
+              },
+              {
+                label: "TOTAL LOCKED (TVL)",
+                value:
+                  platformStatsLoading || platformStats == null
+                    ? "—"
+                    : formatUsd(platformStats.totalLockedUsd),
+                sub: null,
+                color: "text-[#00e5ff]",
+              },
+              {
+                label: "THIS MONTH",
+                value:
+                  platformStatsLoading || platformStats == null
+                    ? "—"
+                    : formatUsd(platformStats.mtdEarningsUsd),
+                sub:
+                  platformStatsLoading ||
+                  platformStats == null ||
+                  platformStats.mtdRoiPct == null
+                    ? null
+                    : `${formatPct(platformStats.mtdRoiPct)} vs TVL`,
+                color:
+                  platformStats != null &&
+                  platformStats.mtdEarningsUsd >= 0
+                    ? "text-[#00c853]"
+                    : "text-[#ff5252]",
+              },
+            ] as const
+          ).map((m) => (
+            <div key={m.label} className="bg-[#12151c] px-4 py-2.5">
+              <div className="text-[12px] uppercase tracking-wider text-[#5c6578]">
+                {m.label}
+              </div>
+              <div className={`font-mono text-base ${m.color}`}>{m.value}</div>
+              {m.sub ? (
+                <div className="mt-0.5 font-mono text-[11px] text-[#5c6578]">
+                  {m.sub}
+                </div>
+              ) : null}
+            </div>
+          ))}
+        </div>
+        <p className="mt-2 max-w-3xl text-[10px] leading-relaxed text-[#5c6578]">
+          Earnings sum credited lock yield (daily ledger). Month is the current
+          UTC calendar month. The percentage compares this month&apos;s credited
+          amount to current TVL (illustrative, not individual performance).
+        </p>
+      </section>
 
       <div className="grid min-h-0 flex-1 grid-cols-12 grid-rows-[auto_minmax(0,1fr)_auto_auto] gap-px bg-[#1e2430] p-px">
         <section
