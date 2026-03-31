@@ -48,6 +48,79 @@ export async function getSolWallet(
   return rows[0] ?? null;
 }
 
+/**
+ * Resolve custodial deposit pubkey → Neon `users.id`.
+ * Custody workers must use this (or equivalent) for every inbound transfer — never a
+ * hardcoded or “first” user id, or one user will receive everyone’s deposits.
+ */
+export async function getUserIdByDepositPubkey(
+  sql: Sql,
+  depositPubkey: string
+): Promise<string | null> {
+  const rows = (await sql`
+    SELECT user_id::text AS id
+    FROM user_sol_wallets
+    WHERE pubkey = ${depositPubkey}
+    LIMIT 1
+  `) as { id: string }[];
+  return rows[0]?.id ?? null;
+}
+
+/**
+ * Idempotent on-chain deposit credit (signature dedupe in `processed_deposit_signatures`).
+ * Single statement so signature claim + balance + ledger stay consistent.
+ */
+export async function creditDepositIfNew(
+  sql: Sql,
+  params: { userId: string; amountUsd: number; signature: string }
+): Promise<
+  | { applied: true; balanceAfter: number }
+  | { applied: false; reason: "duplicate" | "invalid_amount" }
+> {
+  const { userId, amountUsd, signature } = params;
+  if (!Number.isFinite(amountUsd) || amountUsd <= 0) {
+    return { applied: false, reason: "invalid_amount" };
+  }
+  await ensureAccountBalanceRow(sql, userId);
+
+  const rows = (await sql`
+    WITH new_sig AS (
+      INSERT INTO processed_deposit_signatures (signature, user_id, amount)
+      VALUES (${signature}, ${userId}::uuid, ${amountUsd})
+      ON CONFLICT (signature, user_id) DO NOTHING
+      RETURNING signature
+    ),
+    upd AS (
+      UPDATE account_balances ab
+      SET usdc_available = ab.usdc_available + ${amountUsd}
+      WHERE EXISTS (SELECT 1 FROM new_sig)
+        AND ab.user_id = ${userId}::uuid
+      RETURNING ab.usdc_available::float8 AS b
+    )
+    INSERT INTO ledger_entries (
+      user_id,
+      kind,
+      amount,
+      balance_after,
+      ref_signature
+    )
+    SELECT
+      ${userId}::uuid,
+      'deposit',
+      ${amountUsd},
+      upd.b,
+      ${signature}
+    FROM upd
+    RETURNING balance_after::float8 AS b
+  `) as { b: number }[];
+
+  const row = rows[0];
+  if (!row) {
+    return { applied: false, reason: "duplicate" };
+  }
+  return { applied: true, balanceAfter: row.b };
+}
+
 export async function getUsdcAvailable(
   sql: Sql,
   userId: string

@@ -48,10 +48,11 @@ CREATE INDEX IF NOT EXISTS ledger_entries_user_id_created_at_idx
   ON ledger_entries (user_id, created_at DESC);
 
 CREATE TABLE IF NOT EXISTS processed_deposit_signatures (
-  signature text PRIMARY KEY,
+  signature text NOT NULL,
   user_id uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
   amount numeric(20, 6) NOT NULL,
-  created_at timestamptz NOT NULL DEFAULT now()
+  created_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (signature, user_id)
 );
 
 CREATE TABLE IF NOT EXISTS withdrawal_requests (
@@ -156,3 +157,7 @@ ALTER TABLE ledger_entries ADD CONSTRAINT ledger_entries_kind_check CHECK (
     'lock_yield'
   )
 );
+
+-- Upgrade legacy DBs: deposit idempotency per user (same tx may credit multiple users)
+ALTER TABLE processed_deposit_signatures DROP CONSTRAINT IF EXISTS processed_deposit_signatures_pkey;
+ALTER TABLE processed_deposit_signatures ADD PRIMARY KEY (signature, user_id);
