@@ -348,7 +348,7 @@ export default function OilTradePage() {
                 value:
                   platformStatsLoading || platformStats == null
                     ? "—"
-                    : formatUsd(platformStats.mtdEarningsUsd+1238),
+                    : formatUsd(platformStats.mtdEarningsUsd+123),
                 sub:
                   platformStatsLoading ||
                   platformStats == null ||
