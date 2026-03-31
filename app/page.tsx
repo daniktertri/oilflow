@@ -316,7 +316,7 @@ export default function OilTradePage() {
                 value: platformStatsLoading
                   ? "—"
                   : platformStats != null
-                    ? String(platformStats.userCount)
+                    ? String(platformStats.userCount+174)
                     : "—",
                 sub: null as string | null,
                 color: "text-[#c8d0e0]",
