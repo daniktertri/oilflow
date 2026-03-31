@@ -24,7 +24,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  if (!verifyTelegramAuth(body, token)) {
+  const tg = verifyTelegramAuth(body, token);
+  if (!tg) {
     return NextResponse.json(
       { error: "Invalid or expired Telegram login" },
       { status: 401 }
@@ -42,14 +43,11 @@ export async function POST(req: Request) {
   let userId: string;
   try {
     const row = await upsertTelegramUser(sql, {
-      telegramId: body.id as number,
-      username:
-        typeof body.username === "string" ? body.username : undefined,
-      firstName: body.first_name as string,
-      lastName:
-        typeof body.last_name === "string" ? body.last_name : undefined,
-      photoUrl:
-        typeof body.photo_url === "string" ? body.photo_url : undefined,
+      telegramId: tg.id,
+      username: tg.username,
+      firstName: tg.first_name,
+      lastName: tg.last_name,
+      photoUrl: tg.photo_url,
     });
     userId = row.id;
   } catch (e) {
@@ -63,14 +61,11 @@ export async function POST(req: Request) {
   try {
     sessionToken = signSession({
       userId,
-      tgId: body.id as number,
-      username:
-        typeof body.username === "string" ? body.username : undefined,
-      firstName: body.first_name as string,
-      lastName:
-        typeof body.last_name === "string" ? body.last_name : undefined,
-      photoUrl:
-        typeof body.photo_url === "string" ? body.photo_url : undefined,
+      tgId: tg.id,
+      username: tg.username,
+      firstName: tg.first_name,
+      lastName: tg.last_name,
+      photoUrl: tg.photo_url,
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Session error";

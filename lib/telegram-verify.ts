@@ -13,6 +13,21 @@ export type TelegramAuthPayload = {
 
 const AUTH_MAX_AGE_SEC = 86400; // 24h — reject stale logins
 
+function parseTelegramUserId(v: unknown): number | null {
+  if (typeof v === "number" && Number.isFinite(v) && v > 0) return v;
+  if (typeof v === "string" && /^\d{1,20}$/.test(v)) {
+    const n = Number(v);
+    if (Number.isSafeInteger(n)) return n;
+  }
+  return null;
+}
+
+function parseAuthDateUnix(v: unknown): number | null {
+  if (typeof v === "number" && Number.isFinite(v)) return v;
+  if (typeof v === "string" && /^\d{1,12}$/.test(v)) return parseInt(v, 10);
+  return null;
+}
+
 /**
  * Verifies Telegram Login Widget data per
  * https://core.telegram.org/widgets/login#checking-authorization
@@ -20,10 +35,10 @@ const AUTH_MAX_AGE_SEC = 86400; // 24h — reject stale logins
 export function verifyTelegramAuth(
   data: Record<string, unknown>,
   botToken: string
-): data is TelegramAuthPayload {
-  if (!botToken) return false;
+): TelegramAuthPayload | null {
+  if (!botToken) return null;
   const hash = data.hash;
-  if (typeof hash !== "string" || !hash) return false;
+  if (typeof hash !== "string" || !hash) return null;
 
   const pairs: [string, string][] = [];
   for (const key of Object.keys(data)) {
@@ -43,20 +58,31 @@ export function verifyTelegramAuth(
   try {
     const a = Buffer.from(computed, "hex");
     const b = Buffer.from(hash, "hex");
-    if (a.length !== b.length || !timingSafeEqual(a, b)) return false;
+    if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
   } catch {
-    return false;
+    return null;
   }
 
-  const authDate = data.auth_date;
-  if (typeof authDate !== "number" || !Number.isFinite(authDate)) return false;
+  const authDate = parseAuthDateUnix(data.auth_date);
+  if (authDate === null) return null;
   const now = Math.floor(Date.now() / 1000);
-  if (now - authDate > AUTH_MAX_AGE_SEC) return false;
+  if (now - authDate > AUTH_MAX_AGE_SEC) return null;
 
-  const id = data.id;
+  const id = parseTelegramUserId(data.id);
+  if (id === null) return null;
+
   const firstName = data.first_name;
-  if (typeof id !== "number" || !Number.isFinite(id)) return false;
-  if (typeof firstName !== "string" || firstName.length === 0) return false;
+  if (typeof firstName !== "string" || firstName.length === 0) return null;
 
-  return true;
+  const payload: TelegramAuthPayload = {
+    id,
+    first_name: firstName,
+    auth_date: authDate,
+    hash,
+  };
+  if (typeof data.last_name === "string") payload.last_name = data.last_name;
+  if (typeof data.username === "string") payload.username = data.username;
+  if (typeof data.photo_url === "string") payload.photo_url = data.photo_url;
+
+  return payload;
 }

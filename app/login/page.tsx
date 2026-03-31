@@ -8,8 +8,11 @@ import {
   TelegramLoginWidget,
   type TelegramWidgetUser,
 } from "@/components/telegram-login-widget";
+import { normalizeTelegramBotUsername } from "@/lib/telegram-bot-username";
 
-const BOT_USERNAME = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME ?? "";
+const BOT_USERNAME = normalizeTelegramBotUsername(
+  process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME ?? ""
+);
 
 function LoginContent() {
   const router = useRouter();
