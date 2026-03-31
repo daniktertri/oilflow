@@ -32,6 +32,7 @@ const links: { href: string; label: string }[] = [
   { href: "/balance", label: "Balance" },
   { href: "/lock", label: "Lock liquidity" },
   { href: "/how-it-works", label: "How it works" },
+  { href: "/support", label: "Support" },
 ];
 
 /** Static shell while pathname hook resolves — avoids Next/Webpack issues with `search-params` chunk. */
