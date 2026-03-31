@@ -6,17 +6,10 @@ import {
 } from "@/lib/auth-session";
 import { getDb } from "@/lib/db";
 import { upsertTelegramUser } from "@/lib/db/users";
+import { verifyTelegramIdToken } from "@/lib/telegram-oidc-verify";
 import { verifyTelegramAuth } from "@/lib/telegram-verify";
 
 export async function POST(req: Request) {
-  const token = process.env.TELEGRAM_BOT_TOKEN;
-  if (!token) {
-    return NextResponse.json(
-      { error: "Server missing TELEGRAM_BOT_TOKEN" },
-      { status: 500 }
-    );
-  }
-
   let body: Record<string, unknown>;
   try {
     body = (await req.json()) as Record<string, unknown>;
@@ -24,14 +17,56 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const tg = verifyTelegramAuth(body, token);
+  const idToken = body.id_token;
+  const clientId = process.env.NEXT_PUBLIC_TELEGRAM_CLIENT_ID?.trim();
+
+  if (typeof idToken === "string" && idToken.includes(".")) {
+    if (!clientId) {
+      return NextResponse.json(
+        { error: "Server missing NEXT_PUBLIC_TELEGRAM_CLIENT_ID" },
+        { status: 500 }
+      );
+    }
+    const tg = await verifyTelegramIdToken(idToken, clientId);
+    if (!tg) {
+      return NextResponse.json(
+        { error: "Invalid or expired Telegram login" },
+        { status: 401 }
+      );
+    }
+    return completeLogin(tg);
+  }
+
+  const botToken = process.env.TELEGRAM_BOT_TOKEN;
+  if (!botToken) {
+    return NextResponse.json(
+      {
+        error:
+          "Server missing TELEGRAM_BOT_TOKEN (legacy) or use id_token with NEXT_PUBLIC_TELEGRAM_CLIENT_ID (OIDC)",
+      },
+      { status: 500 }
+    );
+  }
+
+  const tg = verifyTelegramAuth(body, botToken);
   if (!tg) {
     return NextResponse.json(
       { error: "Invalid or expired Telegram login" },
       { status: 401 }
     );
   }
+  return completeLogin(tg);
+}
 
+type TgUser = {
+  id: number;
+  first_name: string;
+  last_name?: string;
+  username?: string;
+  photo_url?: string;
+};
+
+async function completeLogin(tg: TgUser) {
   const sql = getDb();
   if (!sql) {
     return NextResponse.json(
