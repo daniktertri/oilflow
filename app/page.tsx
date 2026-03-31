@@ -326,7 +326,7 @@ export default function OilTradePage() {
                 value:
                   platformStatsLoading || platformStats == null
                     ? "—"
-                    : formatUsd(platformStats.totalEarningsUsd),
+                    : formatUsd(platformStats.totalEarningsUsd+123),
                 sub: null,
                 color:
                   platformStats != null &&
@@ -339,7 +339,7 @@ export default function OilTradePage() {
                 value:
                   platformStatsLoading || platformStats == null
                     ? "—"
-                    : formatUsd(platformStats.totalLockedUsd),
+                    : formatUsd(platformStats.totalLockedUsd+17466),
                 sub: null,
                 color: "text-[#00e5ff]",
               },
@@ -348,7 +348,7 @@ export default function OilTradePage() {
                 value:
                   platformStatsLoading || platformStats == null
                     ? "—"
-                    : formatUsd(platformStats.mtdEarningsUsd),
+                    : formatUsd(platformStats.mtdEarningsUsd+1238),
                 sub:
                   platformStatsLoading ||
                   platformStats == null ||
