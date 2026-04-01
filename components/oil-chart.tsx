@@ -46,8 +46,16 @@ export function OilChart() {
     setLoading(true);
     try {
       const res = await fetch(`/api/prices/history?benchmark=${bench}&days=${days}`);
-      const json = (await res.json()) as { history?: OilChartRow[] };
-      const rows = json.history ?? [];
+      const json = (await res.json()) as {
+        history?: { price_date: string; open?: number | null; high?: number | null; low?: number | null; close: number }[];
+      };
+      const rows: OilChartRow[] = (json.history ?? []).map((r) => ({
+        time: r.price_date,
+        open: r.open,
+        high: r.high,
+        low: r.low,
+        close: r.close,
+      }));
       setData(rows);
       if (rows.length > 0) setLastPrice(rows[rows.length - 1].close);
     } catch {
@@ -212,7 +220,16 @@ export function OilChart() {
           {loading && <span className="text-terminal-muted">Loading...</span>}
         </div>
       </div>
-      <div ref={containerRef} className="min-h-0 flex-1" />
+      <div ref={containerRef} className="relative min-h-0 flex-1">
+        {!loading && data.length === 0 && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-terminal-muted">
+            <span className="text-[13px]">No price data yet</span>
+            <span className="text-[11px]">
+              Trigger <code className="text-terminal-amber">/api/seed</code> to populate historical prices
+            </span>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

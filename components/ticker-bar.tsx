@@ -67,7 +67,7 @@ export function TickerBar() {
       <div className="flex items-center gap-0 overflow-x-auto">
         {prices.length === 0 ? (
           <span className="px-4 py-2 text-[12px] text-terminal-muted">
-            Loading prices...
+            Awaiting price data — trigger /api/seed to populate
           </span>
         ) : (
           prices.map((p) => {
