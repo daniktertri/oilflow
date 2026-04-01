@@ -77,12 +77,32 @@ const HUB_COLORS: Record<string, string> = {
 
 type Layer = "production" | "conflicts" | "chokepoints" | "pipelines" | "hubs";
 
+const MIN_ZOOM = 1;
+const MAX_ZOOM = 8;
+const ZOOM_STEP = 0.5;
+
 export default function OilMap() {
   const [selected, setSelected] = useState<CountryOilData | null>(null);
   const [tooltipContent, setTooltipContent] = useState("");
   const [layers, setLayers] = useState<Set<Layer>>(
     new Set(["production", "conflicts", "chokepoints", "hubs"])
   );
+  const [position, setPosition] = useState<{ coordinates: [number, number]; zoom: number }>({
+    coordinates: [20, 20],
+    zoom: 1,
+  });
+
+  const handleZoomIn = () => {
+    setPosition((pos) => ({ ...pos, zoom: Math.min(pos.zoom + ZOOM_STEP, MAX_ZOOM) }));
+  };
+
+  const handleZoomOut = () => {
+    setPosition((pos) => ({ ...pos, zoom: Math.max(pos.zoom - ZOOM_STEP, MIN_ZOOM) }));
+  };
+
+  const handleMoveEnd = (pos: { coordinates: [number, number]; zoom: number }) => {
+    setPosition(pos);
+  };
 
   const countryMap = useMemo(() => {
     const m = new Map<string, CountryOilData>();
@@ -143,7 +163,13 @@ export default function OilMap() {
           className="h-full w-full"
           data-tooltip-id="map-tooltip"
         >
-          <ZoomableGroup center={[20, 20]} zoom={1}>
+          <ZoomableGroup
+            center={position.coordinates}
+            zoom={position.zoom}
+            minZoom={MIN_ZOOM}
+            maxZoom={MAX_ZOOM}
+            onMoveEnd={handleMoveEnd}
+          >
             <Geographies geography={GEO_URL}>
               {({ geographies }) =>
                 geographies.map((geo) => {
@@ -293,6 +319,27 @@ export default function OilMap() {
           className="!bg-[#1a1d28] !text-[11px] !text-[#c8d0e0] !border-terminal-border !rounded !px-3 !py-2 !max-w-[300px]"
           style={{ zIndex: 50 }}
         />
+
+        {/* Zoom controls */}
+        <div className="absolute bottom-3 right-3 z-10 flex flex-col gap-px">
+          <button
+            onClick={handleZoomIn}
+            disabled={position.zoom >= MAX_ZOOM}
+            className="flex h-8 w-8 items-center justify-center border border-terminal-border bg-[#0a0c10]/90 text-[16px] text-terminal-muted transition-colors hover:border-terminal-cyan hover:text-terminal-cyan disabled:opacity-30 disabled:hover:border-terminal-border disabled:hover:text-terminal-muted"
+          >
+            +
+          </button>
+          <button
+            onClick={handleZoomOut}
+            disabled={position.zoom <= MIN_ZOOM}
+            className="flex h-8 w-8 items-center justify-center border border-terminal-border bg-[#0a0c10]/90 text-[16px] text-terminal-muted transition-colors hover:border-terminal-cyan hover:text-terminal-cyan disabled:opacity-30 disabled:hover:border-terminal-border disabled:hover:text-terminal-muted"
+          >
+            −
+          </button>
+          <div className="mt-0.5 text-center text-[8px] text-terminal-muted">
+            {position.zoom.toFixed(1)}×
+          </div>
+        </div>
 
         {/* Legend */}
         <div className="absolute bottom-3 left-3 rounded border border-terminal-border bg-[#0a0c10]/90 p-2">
