@@ -3,7 +3,7 @@
 import { OilChart } from "@/components/oil-chart";
 import { MarketBrief } from "@/components/market-brief";
 import { RelatedNews } from "@/components/related-news";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 
 type TickerPrice = {
   benchmark: string;
@@ -20,6 +20,10 @@ type Brief = {
 
 function formatUsd(n: number) {
   return `$${n.toFixed(2)}`;
+}
+
+function formatTime(d: Date) {
+  return d.toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" });
 }
 
 const DIRECTION_CONFIG: Record<string, { label: string; color: string }> = {
@@ -55,23 +59,43 @@ function MetricCard({
 export default function DashboardPage() {
   const [prices, setPrices] = useState<TickerPrice[]>([]);
   const [signal, setSignal] = useState<Brief | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await fetch("/api/prices/latest", { cache: "no-store" });
-        const data = (await res.json()) as { prices?: TickerPrice[] };
-        if (data.prices) setPrices(data.prices);
-      } catch {}
-    })();
-    (async () => {
-      try {
-        const res = await fetch("/api/ai/brief", { cache: "no-store" });
-        const data = (await res.json()) as { brief?: Brief | null };
-        if (data.brief) setSignal(data.brief);
-      } catch {}
-    })();
+  const loadPrices = useCallback(async () => {
+    try {
+      const res = await fetch("/api/prices/latest", { cache: "no-store" });
+      const data = (await res.json()) as { prices?: TickerPrice[] };
+      if (data.prices) {
+        setPrices(data.prices);
+        setLastUpdated(new Date());
+      }
+    } catch {}
   }, []);
+
+  const loadBrief = useCallback(async () => {
+    try {
+      const res = await fetch("/api/ai/brief", { cache: "no-store" });
+      const data = (await res.json()) as { brief?: Brief | null };
+      if (data.brief) setSignal(data.brief);
+    } catch {}
+  }, []);
+
+  const refresh = useCallback(async () => {
+    setRefreshing(true);
+    await Promise.all([loadPrices(), loadBrief()]);
+    setRefreshKey((k) => k + 1);
+    setRefreshing(false);
+  }, [loadPrices, loadBrief]);
+
+  // Initial load + auto-refresh every 60s
+  useEffect(() => {
+    loadPrices();
+    loadBrief();
+    const id = setInterval(loadPrices, 60_000);
+    return () => clearInterval(id);
+  }, [loadPrices, loadBrief]);
 
   const wti = prices.find((p) => p.benchmark === "WTI");
   const brent = prices.find((p) => p.benchmark === "BRENT");
@@ -92,70 +116,92 @@ export default function DashboardPage() {
 
   return (
     <div className="flex h-full flex-col gap-px bg-terminal-border">
-      {/* Metrics strip */}
-      <div className="grid grid-cols-2 gap-px bg-terminal-border sm:grid-cols-3 lg:grid-cols-6">
-        <MetricCard
-          label="WTI Crude"
-          value={wti ? formatUsd(wti.close) : "—"}
-          sub={wtiChange != null ? `${wtiChange >= 0 ? "+" : ""}${wtiChange.toFixed(2)}% day` : null}
-          color={
-            wtiChange != null
-              ? wtiChange >= 0
-                ? "text-terminal-green"
-                : "text-terminal-red"
-              : "text-terminal-amber"
-          }
-        />
-        <MetricCard
-          label="Brent Crude"
-          value={brent ? formatUsd(brent.close) : "—"}
-          sub={brentChange != null ? `${brentChange >= 0 ? "+" : ""}${brentChange.toFixed(2)}% day` : null}
-          color={
-            brentChange != null
-              ? brentChange >= 0
-                ? "text-terminal-green"
-                : "text-terminal-red"
-              : "text-terminal-cyan"
-          }
-        />
-        <MetricCard
-          label="Brent-WTI Spread"
-          value={spread != null ? formatUsd(spread) : "—"}
-          sub="premium"
-          color="text-[#e0e0e0]"
-        />
-        <MetricCard
-          label="WTI Date"
-          value={wti?.price_date ?? "—"}
-          sub="last update"
-          color="text-terminal-muted"
-        />
-        {/* Market direction signal */}
-        <div className="border border-terminal-border bg-terminal-panel px-4 py-3">
-          <div className="text-[10px] uppercase tracking-wider text-terminal-muted">
-            Market Signal
-          </div>
-          <div className={`mt-1 text-lg font-bold ${dir?.color ?? "text-terminal-muted"}`}>
-            {dir?.label ?? "—"}
-          </div>
-          {signal?.conviction && (
-            <div className="mt-0.5 text-[10px] text-terminal-muted">
-              {signal.conviction} conviction
+      {/* Metrics strip with refresh */}
+      <div className="relative">
+        <div className="grid grid-cols-2 gap-px bg-terminal-border sm:grid-cols-3 lg:grid-cols-6">
+          <MetricCard
+            label="WTI Crude"
+            value={wti ? formatUsd(wti.close) : "—"}
+            sub={wtiChange != null ? `${wtiChange >= 0 ? "+" : ""}${wtiChange.toFixed(2)}% day` : null}
+            color={
+              wtiChange != null
+                ? wtiChange >= 0
+                  ? "text-terminal-green"
+                  : "text-terminal-red"
+                : "text-terminal-amber"
+            }
+          />
+          <MetricCard
+            label="Brent Crude"
+            value={brent ? formatUsd(brent.close) : "—"}
+            sub={brentChange != null ? `${brentChange >= 0 ? "+" : ""}${brentChange.toFixed(2)}% day` : null}
+            color={
+              brentChange != null
+                ? brentChange >= 0
+                  ? "text-terminal-green"
+                  : "text-terminal-red"
+                : "text-terminal-cyan"
+            }
+          />
+          <MetricCard
+            label="Brent-WTI Spread"
+            value={spread != null ? formatUsd(spread) : "—"}
+            sub="premium"
+            color="text-[#e0e0e0]"
+          />
+          {/* Market direction signal */}
+          <div className="border border-terminal-border bg-terminal-panel px-4 py-3">
+            <div className="text-[10px] uppercase tracking-wider text-terminal-muted">
+              Market Signal
             </div>
-          )}
+            <div className={`mt-1 text-lg font-bold ${dir?.color ?? "text-terminal-muted"}`}>
+              {dir?.label ?? "—"}
+            </div>
+            {signal?.conviction && (
+              <div className="mt-0.5 text-[10px] text-terminal-muted">
+                {signal.conviction} conviction
+              </div>
+            )}
+          </div>
+          <MetricCard
+            label="Benchmarks"
+            value={String(prices.length)}
+            sub="tracked"
+            color="text-terminal-cyan"
+          />
+          {/* Refresh card */}
+          <div className="border border-terminal-border bg-terminal-panel px-4 py-3">
+            <div className="text-[10px] uppercase tracking-wider text-terminal-muted">
+              Data Refresh
+            </div>
+            <button
+              onClick={refresh}
+              disabled={refreshing}
+              className="mt-1 flex items-center gap-1.5 text-[13px] text-terminal-cyan transition-colors hover:text-terminal-amber disabled:opacity-50"
+            >
+              <svg
+                viewBox="0 0 16 16"
+                fill="currentColor"
+                className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`}
+              >
+                <path d="M8 3a5 5 0 00-4.546 2.914.5.5 0 01-.908-.418A6 6 0 0114 8a.5.5 0 01-1 0 5 5 0 00-5-5z" />
+                <path d="M8 13a5 5 0 004.546-2.914.5.5 0 01.908.418A6 6 0 012 8a.5.5 0 011 0 5 5 0 005 5z" />
+              </svg>
+              {refreshing ? "Updating..." : "Refresh"}
+            </button>
+            {lastUpdated && (
+              <div className="mt-0.5 text-[10px] text-terminal-muted">
+                {formatTime(lastUpdated)}
+              </div>
+            )}
+          </div>
         </div>
-        <MetricCard
-          label="Benchmarks"
-          value={String(prices.length)}
-          sub="tracked"
-          color="text-terminal-cyan"
-        />
       </div>
 
       {/* Main chart + sidebar */}
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
         <div className="flex min-h-[400px] min-w-0 flex-1 flex-col bg-terminal-panel">
-          <OilChart />
+          <OilChart refreshKey={refreshKey} />
         </div>
         <aside className="flex w-full shrink-0 flex-col border-t border-terminal-border lg:w-[340px] lg:border-l lg:border-t-0">
           <RelatedNews />

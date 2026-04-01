@@ -30,7 +30,7 @@ const RANGES = [
   { label: "5Y", days: 1825 },
 ];
 
-export function OilChart() {
+export function OilChart({ refreshKey }: { refreshKey?: number }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<"Line"> | ISeriesApi<"Candlestick"> | null>(null);
@@ -41,6 +41,7 @@ export function OilChart() {
   const [loading, setLoading] = useState(true);
   const [lastPrice, setLastPrice] = useState<number | null>(null);
   const [data, setData] = useState<OilChartRow[]>([]);
+  const [chartRefreshing, setChartRefreshing] = useState(false);
 
   const fetchData = useCallback(async (bench: string, days: number) => {
     setLoading(true);
@@ -68,6 +69,19 @@ export function OilChart() {
   useEffect(() => {
     fetchData(benchmark, range);
   }, [benchmark, range, fetchData]);
+
+  // Re-fetch when parent triggers refresh
+  useEffect(() => {
+    if (refreshKey !== undefined && refreshKey > 0) {
+      fetchData(benchmark, range);
+    }
+  }, [refreshKey, benchmark, range, fetchData]);
+
+  const handleRefresh = async () => {
+    setChartRefreshing(true);
+    await fetchData(benchmark, range);
+    setChartRefreshing(false);
+  };
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -218,6 +232,22 @@ export function OilChart() {
             <span className="text-terminal-amber">${lastPrice.toFixed(2)}</span>
           )}
           {loading && <span className="text-terminal-muted">Loading...</span>}
+          <button
+            onClick={handleRefresh}
+            disabled={chartRefreshing}
+            title="Refresh chart data"
+            className="flex items-center gap-1 border border-terminal-border px-2 py-1 text-[10px] text-terminal-muted transition-colors hover:border-terminal-cyan hover:text-terminal-cyan disabled:opacity-50"
+          >
+            <svg
+              viewBox="0 0 16 16"
+              fill="currentColor"
+              className={`h-3 w-3 ${chartRefreshing ? "animate-spin" : ""}`}
+            >
+              <path d="M8 3a5 5 0 00-4.546 2.914.5.5 0 01-.908-.418A6 6 0 0114 8a.5.5 0 01-1 0 5 5 0 00-5-5z" />
+              <path d="M8 13a5 5 0 004.546-2.914.5.5 0 01.908.418A6 6 0 012 8a.5.5 0 011 0 5 5 0 005 5z" />
+            </svg>
+            Refresh
+          </button>
         </div>
       </div>
       <div ref={containerRef} className="relative min-h-0 flex-1">
