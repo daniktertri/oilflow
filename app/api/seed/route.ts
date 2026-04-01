@@ -6,11 +6,6 @@ import { upsertOilPrice, upsertInventory } from "@/lib/db/oil-prices";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-/**
- * One-time seed endpoint to populate initial price data.
- * No auth required — safe because it's purely additive (upsert).
- * Hit this once after deployment: GET /api/seed
- */
 export async function GET(req: NextRequest) {
   const sql = getDb();
   if (!sql) {
@@ -19,7 +14,6 @@ export async function GET(req: NextRequest) {
 
   const results: Record<string, number | string> = {};
 
-  // Fetch 1 year of WTI data
   try {
     const wtiPrices = await fetchWtiSpotPrices(365);
     for (const p of wtiPrices) {
@@ -35,7 +29,6 @@ export async function GET(req: NextRequest) {
     results.wtiError = e instanceof Error ? e.message : "unknown";
   }
 
-  // Fetch 1 year of Brent data
   try {
     const brentPrices = await fetchBrentSpotPrices(365);
     for (const p of brentPrices) {
@@ -51,7 +44,6 @@ export async function GET(req: NextRequest) {
     results.brentError = e instanceof Error ? e.message : "unknown";
   }
 
-  // Fetch 1 year of inventory data
   try {
     const inventories = await fetchCrudeInventories(52);
     for (const inv of inventories) {
@@ -67,7 +59,6 @@ export async function GET(req: NextRequest) {
     results.inventoriesError = e instanceof Error ? e.message : "unknown";
   }
 
-  // Build headers for internal cron calls (pass CRON_SECRET if set)
   const cronSecret = process.env.CRON_SECRET;
   const internalHeaders: HeadersInit = cronSecret
     ? { Authorization: `Bearer ${cronSecret}` }
@@ -79,12 +70,23 @@ export async function GET(req: NextRequest) {
       headers: internalHeaders,
     });
     const newsData = await newsRes.json();
-    results.news = newsData?.synced ?? "done";
+    results.telegram = newsData?.synced ?? "done";
   } catch (e) {
-    results.newsError = e instanceof Error ? e.message : "unknown";
+    results.telegramError = e instanceof Error ? e.message : "unknown";
   }
 
-  // Generate AI daily brief (needs prices to be seeded first)
+  // Sync RSS news
+  try {
+    const rssRes = await fetch(new URL("/api/cron/sync-rss-news", req.url), {
+      headers: internalHeaders,
+    });
+    const rssData = await rssRes.json();
+    results.rss = rssData?.synced ?? "done";
+  } catch (e) {
+    results.rssError = e instanceof Error ? e.message : "unknown";
+  }
+
+  // Generate AI daily brief
   try {
     const briefRes = await fetch(new URL("/api/cron/daily-brief", req.url), {
       headers: internalHeaders,

@@ -12,9 +12,21 @@ type TickerPrice = {
   prev_close: number | null;
 };
 
+type Brief = {
+  direction: string | null;
+  conviction: string | null;
+  sentiment: string | null;
+};
+
 function formatUsd(n: number) {
   return `$${n.toFixed(2)}`;
 }
+
+const DIRECTION_CONFIG: Record<string, { label: string; color: string }> = {
+  LONG: { label: "LONG", color: "text-terminal-green" },
+  SHORT: { label: "SHORT", color: "text-terminal-red" },
+  NEUTRAL: { label: "NEUTRAL", color: "text-terminal-amber" },
+};
 
 function MetricCard({
   label,
@@ -42,6 +54,7 @@ function MetricCard({
 
 export default function DashboardPage() {
   const [prices, setPrices] = useState<TickerPrice[]>([]);
+  const [signal, setSignal] = useState<Brief | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -49,6 +62,13 @@ export default function DashboardPage() {
         const res = await fetch("/api/prices/latest", { cache: "no-store" });
         const data = (await res.json()) as { prices?: TickerPrice[] };
         if (data.prices) setPrices(data.prices);
+      } catch {}
+    })();
+    (async () => {
+      try {
+        const res = await fetch("/api/ai/brief", { cache: "no-store" });
+        const data = (await res.json()) as { brief?: Brief | null };
+        if (data.brief) setSignal(data.brief);
       } catch {}
     })();
   }, []);
@@ -67,6 +87,8 @@ export default function DashboardPage() {
 
   const spread =
     brent && wti ? brent.close - wti.close : null;
+
+  const dir = DIRECTION_CONFIG[signal?.direction ?? ""] ?? null;
 
   return (
     <div className="flex h-full flex-col gap-px bg-terminal-border">
@@ -108,17 +130,25 @@ export default function DashboardPage() {
           sub="last update"
           color="text-terminal-muted"
         />
+        {/* Market direction signal */}
+        <div className="border border-terminal-border bg-terminal-panel px-4 py-3">
+          <div className="text-[10px] uppercase tracking-wider text-terminal-muted">
+            Market Signal
+          </div>
+          <div className={`mt-1 text-lg font-bold ${dir?.color ?? "text-terminal-muted"}`}>
+            {dir?.label ?? "—"}
+          </div>
+          {signal?.conviction && (
+            <div className="mt-0.5 text-[10px] text-terminal-muted">
+              {signal.conviction} conviction
+            </div>
+          )}
+        </div>
         <MetricCard
           label="Benchmarks"
           value={String(prices.length)}
           sub="tracked"
           color="text-terminal-cyan"
-        />
-        <MetricCard
-          label="Data Source"
-          value="EIA + HL"
-          sub="U.S. Energy Information Administration"
-          color="text-terminal-muted"
         />
       </div>
 

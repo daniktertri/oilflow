@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 
-const OilMap = dynamic(() => import("@/components/oil-map").then((m) => m.OilMap), {
+const OilMap = dynamic(() => import("@/components/oil-map"), {
   ssr: false,
   loading: () => (
     <div className="flex h-full items-center justify-center text-[12px] text-terminal-muted">

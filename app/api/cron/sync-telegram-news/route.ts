@@ -51,15 +51,19 @@ export async function GET(req: NextRequest) {
           postedAt: msg.postedAt,
         });
 
-        // AI summarize if available
         try {
           const analysis = await summarizeNewsArticle(textPlain);
           if (analysis) {
             await sql`
               UPDATE telegram_channel_posts
               SET ai_summary = ${analysis.summary},
-                  sentiment_score = ${analysis.sentiment === "bullish" ? 0.8 : analysis.sentiment === "bearish" ? 0.2 : 0.5},
-                  category = ${analysis.category}
+                  sentiment_score = ${analysis.direction === "bullish" ? 0.8 : analysis.direction === "bearish" ? 0.2 : 0.5},
+                  category = ${analysis.category},
+                  direction = ${analysis.direction},
+                  impact_level = ${analysis.impactLevel},
+                  price_impact = ${analysis.priceImpact},
+                  confidence = ${analysis.confidence},
+                  affected_benchmarks = ${analysis.affectedBenchmarks.join(",")}
               WHERE channel_chat_id = ${chatId} AND message_id = ${msg.messageId}
             `;
           }

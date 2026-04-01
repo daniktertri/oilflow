@@ -25,9 +25,17 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Insufficient price data" }, { status: 500 });
   }
 
-  const newsRows = (await sql`
+  // Gather recent headlines from both telegram posts and news articles
+  const tgNews = (await sql`
     SELECT text_plain FROM telegram_channel_posts ORDER BY posted_at DESC LIMIT 5
   `) as { text_plain: string }[];
+
+  const rssNews = (await sql`
+    SELECT COALESCE(title, '') || ': ' || COALESCE(body, '') AS text_plain
+    FROM news_articles ORDER BY published_at DESC LIMIT 5
+  `) as { text_plain: string }[];
+
+  const allNews = [...tgNews, ...rssNews].map((r) => r.text_plain.slice(0, 500));
 
   const wtiChange = wti.prev_close ? ((wti.close - wti.prev_close) / wti.prev_close) * 100 : 0;
   const brentChange = brent.prev_close ? ((brent.close - brent.prev_close) / brent.prev_close) * 100 : 0;
@@ -37,7 +45,7 @@ export async function GET(req: NextRequest) {
     brentPrice: brent.close,
     wtiChange,
     brentChange,
-    recentNews: newsRows.map((r) => r.text_plain.slice(0, 500)),
+    recentNews: allNews,
   });
 
   if (!brief) {
@@ -51,6 +59,9 @@ export async function GET(req: NextRequest) {
     outlook: brief.outlook,
     keyDrivers: brief.keyDrivers,
     sentiment: brief.sentiment,
+    direction: brief.direction,
+    conviction: brief.conviction,
+    risks: brief.risks,
   });
 
   return NextResponse.json({ ok: true, brief });

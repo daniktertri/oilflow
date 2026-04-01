@@ -73,7 +73,7 @@ CREATE TABLE IF NOT EXISTS eia_inventories (
 CREATE INDEX IF NOT EXISTS eia_inventories_date_idx
   ON eia_inventories (report_date DESC);
 
--- ─── News channels (configurable) ──────────────────────────────────────
+-- ─── News channels (configurable — Telegram sources) ──────────────────
 
 CREATE TABLE IF NOT EXISTS news_channels (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -85,11 +85,7 @@ CREATE TABLE IF NOT EXISTS news_channels (
 );
 
 INSERT INTO news_channels (username, display_name, category) VALUES
-  ('BRICSNews',      'BRICS News',           'geopolitics'),
-  ('OilPrice_com',   'OilPrice.com',         'market'),
-  ('ReutersEnergy',  'Reuters Energy',       'market'),
-  ('OPECnews',       'OPEC News',            'opec'),
-  ('EnergyIntel',    'Energy Intelligence',  'analysis')
+  ('BRICSNews', 'BRICS News', 'geopolitics')
 ON CONFLICT (username) DO NOTHING;
 
 -- ─── Telegram channel posts (enhanced with AI fields) ───────────────────
@@ -104,14 +100,24 @@ CREATE TABLE IF NOT EXISTS telegram_channel_posts (
   ai_summary text,
   sentiment_score numeric(4,3),
   category text,
+  direction text,
+  impact_level text,
+  price_impact text,
+  confidence text,
+  affected_benchmarks text,
   inserted_at timestamptz NOT NULL DEFAULT now(),
   UNIQUE (channel_chat_id, message_id)
 );
 
--- Migrate existing telegram_channel_posts: add new columns if missing
+-- Migrate existing: add new columns if missing
 ALTER TABLE telegram_channel_posts ADD COLUMN IF NOT EXISTS ai_summary text;
 ALTER TABLE telegram_channel_posts ADD COLUMN IF NOT EXISTS sentiment_score numeric(4,3);
 ALTER TABLE telegram_channel_posts ADD COLUMN IF NOT EXISTS category text;
+ALTER TABLE telegram_channel_posts ADD COLUMN IF NOT EXISTS direction text;
+ALTER TABLE telegram_channel_posts ADD COLUMN IF NOT EXISTS impact_level text;
+ALTER TABLE telegram_channel_posts ADD COLUMN IF NOT EXISTS price_impact text;
+ALTER TABLE telegram_channel_posts ADD COLUMN IF NOT EXISTS confidence text;
+ALTER TABLE telegram_channel_posts ADD COLUMN IF NOT EXISTS affected_benchmarks text;
 
 CREATE INDEX IF NOT EXISTS telegram_channel_posts_posted_at_idx
   ON telegram_channel_posts (posted_at DESC);
@@ -119,6 +125,33 @@ CREATE INDEX IF NOT EXISTS telegram_channel_posts_posted_at_idx
 CREATE INDEX IF NOT EXISTS telegram_channel_posts_category_idx
   ON telegram_channel_posts (category)
   WHERE category IS NOT NULL;
+
+-- ─── News articles (RSS / external sources) ──────────────────────────────
+
+CREATE TABLE IF NOT EXISTS news_articles (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  source text NOT NULL,
+  source_name text NOT NULL,
+  title text NOT NULL,
+  body text,
+  url text NOT NULL UNIQUE,
+  published_at timestamptz NOT NULL,
+  ai_summary text,
+  direction text,
+  impact_level text,
+  price_impact text,
+  confidence text,
+  affected_benchmarks text,
+  category text,
+  sentiment text,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS news_articles_published_at_idx
+  ON news_articles (published_at DESC);
+
+CREATE INDEX IF NOT EXISTS news_articles_source_idx
+  ON news_articles (source);
 
 -- ─── AI market briefs (daily) ───────────────────────────────────────────
 
@@ -129,28 +162,19 @@ CREATE TABLE IF NOT EXISTS ai_market_briefs (
   outlook text,
   key_drivers text,
   sentiment text CHECK (sentiment IN ('bullish', 'bearish', 'neutral')),
+  direction text,
+  conviction text,
+  risks text,
   created_at timestamptz NOT NULL DEFAULT now()
 );
+
+-- Migrate existing briefs table
+ALTER TABLE ai_market_briefs ADD COLUMN IF NOT EXISTS direction text;
+ALTER TABLE ai_market_briefs ADD COLUMN IF NOT EXISTS conviction text;
+ALTER TABLE ai_market_briefs ADD COLUMN IF NOT EXISTS risks text;
 
 CREATE INDEX IF NOT EXISTS ai_market_briefs_date_idx
   ON ai_market_briefs (brief_date DESC);
-
--- ─── User alerts ────────────────────────────────────────────────────────
-
-CREATE TABLE IF NOT EXISTS user_alerts (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
-  benchmark text NOT NULL REFERENCES oil_benchmarks (key),
-  condition text NOT NULL CHECK (condition IN ('above', 'below')),
-  threshold numeric(12,4) NOT NULL,
-  active boolean NOT NULL DEFAULT true,
-  last_triggered_at timestamptz,
-  created_at timestamptz NOT NULL DEFAULT now()
-);
-
-CREATE INDEX IF NOT EXISTS user_alerts_active_idx
-  ON user_alerts (active, benchmark)
-  WHERE active = true;
 
 -- ─── User preferences ──────────────────────────────────────────────────
 
@@ -162,7 +186,7 @@ CREATE TABLE IF NOT EXISTS user_preferences (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
--- ─── Sync state (replaces custody_state for news sync) ─────────────────
+-- ─── Sync state ─────────────────────────────────────────────────────────
 
 CREATE TABLE IF NOT EXISTS sync_state (
   key text PRIMARY KEY,
@@ -170,8 +194,9 @@ CREATE TABLE IF NOT EXISTS sync_state (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
--- ─── Migration: drop old trading tables ─────────────────────────────────
+-- ─── Drop deprecated tables ─────────────────────────────────────────────
 
+DROP TABLE IF EXISTS user_alerts CASCADE;
 DROP TABLE IF EXISTS lock_synthetic_trades CASCADE;
 DROP TABLE IF EXISTS daily_returns CASCADE;
 DROP TABLE IF EXISTS liquidity_locks CASCADE;
