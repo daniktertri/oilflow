@@ -31,6 +31,10 @@ async function eiaFetch(path: string, params: Record<string, string> = {}): Prom
     url.searchParams.set(k, v);
   }
 
+  // EIA v2 sort requires bracket notation: sort[0][column]=period&sort[0][direction]=desc
+  url.searchParams.set("sort[0][column]", "period");
+  url.searchParams.set("sort[0][direction]", "desc");
+
   const res = await fetch(url.toString(), {
     headers: { Accept: "application/json" },
     next: { revalidate: 0 },
@@ -55,7 +59,6 @@ export async function fetchWtiSpotPrices(limit = 365): Promise<EiaPriceRow[]> {
     "data[0]": "value",
     frequency: "daily",
     "facets[series][]": "RWTC",
-    sort: JSON.stringify([{ column: "period", direction: "desc" }]),
     length: String(limit),
   });
   return rows
@@ -69,7 +72,6 @@ export async function fetchBrentSpotPrices(limit = 365): Promise<EiaPriceRow[]> 
     "data[0]": "value",
     frequency: "daily",
     "facets[series][]": "RBRTE",
-    sort: JSON.stringify([{ column: "period", direction: "desc" }]),
     length: String(limit),
   });
   return rows
@@ -84,7 +86,6 @@ export async function fetchCrudeInventories(limit = 52): Promise<EiaPriceRow[]> 
     frequency: "weekly",
     "facets[product][]": "EPC0",
     "facets[process][]": "SAX",
-    sort: JSON.stringify([{ column: "period", direction: "desc" }]),
     length: String(limit),
   });
   return rows
@@ -99,7 +100,6 @@ export async function fetchGasolineInventories(limit = 52): Promise<EiaPriceRow[
     frequency: "weekly",
     "facets[product][]": "EPM0",
     "facets[process][]": "SAX",
-    sort: JSON.stringify([{ column: "period", direction: "desc" }]),
     length: String(limit),
   });
   return rows
@@ -114,7 +114,6 @@ export async function fetchUsProduction(limit = 36): Promise<EiaPriceRow[]> {
     frequency: "monthly",
     "facets[duoarea][]": "NUS-Z00",
     "facets[product][]": "EPC0",
-    sort: JSON.stringify([{ column: "period", direction: "desc" }]),
     length: String(limit),
   });
   return rows
