@@ -20,7 +20,7 @@ function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const next = searchParams.get("next") ?? "/";
-  const { refresh, user } = useTelegramAuth();
+  const { refresh, user, logout } = useTelegramAuth();
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -82,24 +82,32 @@ function LoginContent() {
 
   if (user) {
     return (
-      <div className="flex min-h-[calc(100dvh-3.25rem)] flex-col items-center justify-center px-4 py-10 font-mono text-[#c8d0e0]">
+      <div className="flex h-full flex-col items-center justify-center px-4 py-10">
         <div className="w-full max-w-sm text-center">
-          <p className="mb-2 text-[12px] uppercase tracking-wider text-[#5c6578]">
+          <p className="mb-2 text-[12px] uppercase tracking-wider text-terminal-muted">
             Signed in
           </p>
-          <p className="mb-8 text-sm">
+          <p className="mb-2 text-sm text-[#c8d0e0]">
             {user.firstName}
             {user.lastName ? ` ${user.lastName}` : ""}
             {user.username ? (
-              <span className="text-[#5c6578]"> @{user.username}</span>
+              <span className="text-terminal-muted"> @{user.username}</span>
             ) : null}
           </p>
-          <Link
-            href="/"
-            className="inline-block min-h-[2.75rem] border border-[#2a3140] px-5 py-2.5 text-[12px] uppercase text-[#00e5ff] hover:border-[#ffc107]"
-          >
-            Continue to app
-          </Link>
+          <div className="mt-6 flex flex-col items-center gap-3">
+            <Link
+              href="/"
+              className="inline-block border border-terminal-border px-5 py-2.5 text-[12px] uppercase text-terminal-cyan hover:border-terminal-amber"
+            >
+              Go to Terminal
+            </Link>
+            <button
+              onClick={() => void logout()}
+              className="text-[11px] text-terminal-muted hover:text-terminal-red"
+            >
+              Log out
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -109,23 +117,18 @@ function LoginContent() {
   const hasLegacy = BOT_USERNAME.length > 0;
 
   return (
-    <div className="flex min-h-[calc(100dvh-3.25rem)] flex-col items-center justify-center px-4 py-10 font-mono text-[#c8d0e0]">
+    <div className="flex h-full flex-col items-center justify-center px-4 py-10">
       <div className="w-full max-w-sm text-center">
-        <h1 className="mb-8 text-sm font-normal text-[#ffc107]">Log in</h1>
+        <h1 className="mb-2 text-lg text-terminal-amber">OilFlow Terminal</h1>
+        <p className="mb-8 text-[12px] text-terminal-muted">
+          Log in with Telegram to access alerts and personalized settings
+        </p>
 
         {!hasOidc && !hasLegacy ? (
-          <p className="border border-[#ff5252]/40 bg-[#1f0d0d] px-4 py-3 text-left text-[12px] text-[#ff8a80]">
+          <p className="border border-terminal-red/40 bg-[#1f0d0d] px-4 py-3 text-left text-[12px] text-[#ff8a80]">
             Set{" "}
-            <code className="text-[#ffc107]">NEXT_PUBLIC_TELEGRAM_CLIENT_ID</code>{" "}
-            (recommended, from BotFather → Web Login) in{" "}
-            <code className="text-[#ffc107]">.env.local</code>, or legacy{" "}
-            <code className="text-[#ffc107]">
-              NEXT_PUBLIC_TELEGRAM_BOT_USERNAME
-            </code>{" "}
-            + <code className="text-[#ffc107]">TELEGRAM_BOT_TOKEN</code>. In
-            BotFather, add Allowed URL: your exact login page (e.g.{" "}
-            <code className="text-[#ffc107]">https://yoursite.com/login</code>
-            ). Restart the dev server after changes.
+            <code className="text-terminal-amber">NEXT_PUBLIC_TELEGRAM_CLIENT_ID</code>{" "}
+            in <code className="text-terminal-amber">.env.local</code> to enable Telegram login.
           </p>
         ) : (
           <>
@@ -148,13 +151,19 @@ function LoginContent() {
               )}
             </div>
             {busy && (
-              <p className="mt-4 text-[11px] text-[#5c6578]">Signing in…</p>
+              <p className="mt-4 text-[11px] text-terminal-muted">Signing in...</p>
             )}
             {error && (
               <p className="mt-4 text-[12px] text-[#ff8a80]">{error}</p>
             )}
           </>
         )}
+
+        <div className="mt-8 border-t border-terminal-border pt-4">
+          <p className="text-[11px] text-terminal-muted">
+            The terminal is fully accessible without login. Authentication is only needed for price alerts and notification preferences.
+          </p>
+        </div>
       </div>
     </div>
   );
@@ -164,8 +173,8 @@ export default function LoginPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex min-h-[calc(100dvh-3.25rem)] items-center justify-center px-4 font-mono text-[12px] text-[#5c6578]">
-          Loading…
+        <div className="flex h-full items-center justify-center text-[12px] text-terminal-muted">
+          Loading...
         </div>
       }
     >

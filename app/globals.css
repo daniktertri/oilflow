@@ -21,19 +21,18 @@ body {
   background: var(--color-terminal-bg);
   color: #c8d0e0;
   font-family: var(--font-mono);
-  font-size: 14px;
+  font-size: 13px;
   letter-spacing: 0.02em;
 }
 
-/* Scrollbars — terminal */
 * {
   scrollbar-width: thin;
   scrollbar-color: #2a3140 #0c0e12;
 }
 
 *::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 *::-webkit-scrollbar-track {
@@ -45,7 +44,6 @@ body {
   border-radius: 2px;
 }
 
-/* No spinner arrows on number fields (Chrome / Firefox / Safari) */
 input[type="number"] {
   appearance: textfield;
   -moz-appearance: textfield;
@@ -55,4 +53,22 @@ input[type="number"]::-webkit-outer-spin-button,
 input[type="number"]::-webkit-inner-spin-button {
   -webkit-appearance: none;
   margin: 0;
+}
+
+@keyframes pulse-glow {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+@keyframes ticker-scroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+.animate-ticker {
+  animation: ticker-scroll 30s linear infinite;
 }

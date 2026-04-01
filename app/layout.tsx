@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { JetBrains_Mono } from "next/font/google";
-import { AppNav } from "@/components/app-nav";
 import { Providers } from "@/components/providers";
+import { SideNav } from "@/components/side-nav";
+import { TickerBar } from "@/components/ticker-bar";
 import "./globals.css";
 
 const jetbrains = JetBrains_Mono({
@@ -10,11 +11,14 @@ const jetbrains = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "OilFlow — AI WTI oil trading",
+  title: "OilFlow Terminal — Oil Market Intelligence",
   description:
-    "Automated WTI crude oil trading with AI on Hyperliquid (USDC margin)",
-  icons: {
-    icon: "/favicon.svg",
+    "Real-time oil market monitoring terminal. Track WTI, Brent, OPEC prices, global production, news, and AI-powered market analysis.",
+  icons: { icon: "/favicon.svg" },
+  openGraph: {
+    title: "OilFlow Terminal",
+    description: "Bloomberg-style oil market intelligence dashboard",
+    type: "website",
   },
 };
 
@@ -27,8 +31,13 @@ export default function RootLayout({
     <html lang="en" className={jetbrains.variable}>
       <body className="antialiased">
         <Providers>
-          <AppNav />
-          {children}
+          <div className="flex h-screen overflow-hidden">
+            <SideNav />
+            <div className="flex min-w-0 flex-1 flex-col">
+              <TickerBar />
+              <main className="min-h-0 flex-1 overflow-y-auto">{children}</main>
+            </div>
+          </div>
         </Providers>
       </body>
     </html>

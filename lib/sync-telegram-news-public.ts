@@ -52,7 +52,7 @@ function maxPages(): number {
 
 async function getLastSyncIso(sql: Sql): Promise<string | null> {
   const rows = (await sql`
-    SELECT value FROM custody_state WHERE key = ${SYNC_STATE_KEY}
+    SELECT value FROM sync_state WHERE key = ${SYNC_STATE_KEY}
   `) as { value: string }[];
   const row = rows[0];
   return row?.value ?? null;
@@ -60,7 +60,7 @@ async function getLastSyncIso(sql: Sql): Promise<string | null> {
 
 async function setLastSyncIso(sql: Sql, iso: string): Promise<void> {
   await sql`
-    INSERT INTO custody_state (key, value, updated_at)
+    INSERT INTO sync_state (key, value, updated_at)
     VALUES (${SYNC_STATE_KEY}, ${iso}, now())
     ON CONFLICT (key) DO UPDATE SET
       value = EXCLUDED.value,
@@ -124,7 +124,7 @@ export async function syncTelegramNewsFromPublicFeedIfStale(
 export async function syncTelegramNewsFromPublicFeedForce(
   sql: Sql
 ): Promise<{ upserted: number }> {
-  await sql`DELETE FROM custody_state WHERE key = ${SYNC_STATE_KEY}`;
+  await sql`DELETE FROM sync_state WHERE key = ${SYNC_STATE_KEY}`;
   const r = await syncTelegramNewsFromPublicFeedIfStale(sql);
   return { upserted: r.upserted };
 }
