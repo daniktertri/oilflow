@@ -13,6 +13,15 @@ export type OilPriceRow = {
   source: string;
 };
 
+/** Coerce a Postgres numeric/decimal value (returned as string) to a JS number. */
+function num(v: unknown): number {
+  return v == null ? 0 : Number(v);
+}
+
+function numOrNull(v: unknown): number | null {
+  return v == null ? null : Number(v);
+}
+
 export async function upsertOilPrice(
   sql: Sql,
   row: {
@@ -51,7 +60,7 @@ export async function upsertOilPrice(
 export async function getLatestPrices(sql: Sql): Promise<
   { benchmark: string; close: number; price_date: string; prev_close: number | null }[]
 > {
-  const rows = await sql`
+  const rows = (await sql`
     WITH ranked AS (
       SELECT
         benchmark,
@@ -65,8 +74,14 @@ export async function getLatestPrices(sql: Sql): Promise<
     FROM ranked
     WHERE rn = 1
     ORDER BY benchmark
-  `;
-  return rows as { benchmark: string; close: number; price_date: string; prev_close: number | null }[];
+  `) as { benchmark: string; close: unknown; price_date: string; prev_close: unknown }[];
+
+  return rows.map((r) => ({
+    benchmark: r.benchmark,
+    close: num(r.close),
+    price_date: r.price_date,
+    prev_close: numOrNull(r.prev_close),
+  }));
 }
 
 export async function getPriceHistory(
@@ -74,14 +89,26 @@ export async function getPriceHistory(
   benchmark: string,
   days: number = 365
 ): Promise<OilPriceRow[]> {
-  const rows = await sql`
+  const rows = (await sql`
     SELECT benchmark, price_date::text, open, high, low, close, volume, source
     FROM oil_prices
     WHERE benchmark = ${benchmark}
     ORDER BY price_date DESC
     LIMIT ${days}
-  `;
-  return (rows as OilPriceRow[]).reverse();
+  `) as Record<string, unknown>[];
+
+  return rows
+    .map((r) => ({
+      benchmark: String(r.benchmark),
+      price_date: String(r.price_date),
+      open: numOrNull(r.open),
+      high: numOrNull(r.high),
+      low: numOrNull(r.low),
+      close: num(r.close),
+      volume: numOrNull(r.volume),
+      source: String(r.source),
+    }))
+    .reverse();
 }
 
 export async function getSpreadHistory(
@@ -90,7 +117,7 @@ export async function getSpreadHistory(
   bench2: string,
   days: number = 180
 ): Promise<{ date: string; spread: number }[]> {
-  const rows = await sql`
+  const rows = (await sql`
     SELECT
       a.price_date::text AS date,
       (a.close - b.close)::numeric AS spread
@@ -101,8 +128,11 @@ export async function getSpreadHistory(
     WHERE a.benchmark = ${bench1}
     ORDER BY a.price_date DESC
     LIMIT ${days}
-  `;
-  return (rows as { date: string; spread: number }[]).reverse();
+  `) as { date: string; spread: unknown }[];
+
+  return rows
+    .map((r) => ({ date: r.date, spread: num(r.spread) }))
+    .reverse();
 }
 
 export async function getInventoryHistory(
@@ -110,7 +140,7 @@ export async function getInventoryHistory(
   product: string = "EPC0",
   weeks: number = 52
 ): Promise<{ date: string; value: number; change: number | null }[]> {
-  const rows = await sql`
+  const rows = (await sql`
     SELECT
       report_date::text AS date,
       value_mbbls AS value,
@@ -119,8 +149,15 @@ export async function getInventoryHistory(
     WHERE product = ${product}
     ORDER BY report_date DESC
     LIMIT ${weeks}
-  `;
-  return (rows as { date: string; value: number; change: number | null }[]).reverse();
+  `) as { date: string; value: unknown; change: unknown }[];
+
+  return rows
+    .map((r) => ({
+      date: r.date,
+      value: num(r.value),
+      change: numOrNull(r.change),
+    }))
+    .reverse();
 }
 
 export async function upsertInventory(

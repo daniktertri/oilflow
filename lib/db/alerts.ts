@@ -13,13 +13,21 @@ export type AlertRow = {
 };
 
 export async function getUserAlerts(sql: Sql, userId: string): Promise<AlertRow[]> {
-  const rows = await sql`
+  const rows = (await sql`
     SELECT id, benchmark, condition, threshold, active, last_triggered_at::text, created_at::text
     FROM user_alerts
     WHERE user_id = ${userId}
     ORDER BY created_at DESC
-  `;
-  return rows as AlertRow[];
+  `) as Record<string, unknown>[];
+  return rows.map((r) => ({
+    id: String(r.id),
+    benchmark: String(r.benchmark),
+    condition: String(r.condition),
+    threshold: Number(r.threshold),
+    active: Boolean(r.active),
+    last_triggered_at: r.last_triggered_at ? String(r.last_triggered_at) : null,
+    created_at: String(r.created_at),
+  }));
 }
 
 export async function createAlert(
@@ -63,7 +71,14 @@ export async function getTriggeredAlerts(
       )
       AND (a.last_triggered_at IS NULL OR a.last_triggered_at < now() - interval '1 hour')
   `;
-  return rows as { id: string; user_id: string; benchmark: string; condition: string; threshold: number; telegram_id: number }[];
+  return (rows as Record<string, unknown>[]).map((r) => ({
+    id: String(r.id),
+    user_id: String(r.user_id),
+    benchmark: String(r.benchmark),
+    condition: String(r.condition),
+    threshold: Number(r.threshold),
+    telegram_id: Number(r.telegram_id),
+  }));
 }
 
 export async function markAlertTriggered(sql: Sql, alertId: string): Promise<void> {
